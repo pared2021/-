@@ -1,0 +1,7 @@
+[tool.bandit]
+
+exclude_dirs = ["tests"]
+
+tests = ["B101", "B102"]
+
+skips = ["B311"]

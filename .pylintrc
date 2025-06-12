@@ -1,0 +1,118 @@
+[MASTER]
+# 递归查找Python模块
+recursive=yes
+
+# 添加要分析的Python包
+init-hook='import sys; sys.path.append(".")'
+
+# 忽略的文件或目录
+ignore=CVS,.git,__pycache__,build,dist
+
+# 允许分析的C扩展包
+extension-pkg-allow-list=win32gui,win32ui,win32con,win32api,numpy,PyQt6,cv2,torch
+
+[MESSAGES CONTROL]
+# 禁用的警告
+disable=C0111,  # 缺少文档字符串
+        C0103,  # 命名不符合规范
+        C0301,  # 行太长
+        C0303,  # 行尾空格
+        C0305,  # 文件末尾多余的空行
+        W0311,  # 错误的缩进
+        W0312,  # 混合使用制表符和空格
+        W0511,  # TODO/FIXME警告
+        R0902,  # 类属性太多
+        R0903,  # 类方法太少
+        R0904,  # 类方法太多
+        R0911,  # 返回语句太多
+        R0912,  # 分支太多
+        R0913,  # 参数太多
+        R0914,  # 局部变量太多
+        R0915,  # 语句太多
+        R1705,  # 不必要的else语句
+        R1710,  # 不一致的返回语句
+        R1714,  # 考虑使用in运算符
+        R1722,  # 考虑使用sys.exit()
+        W0621,  # 重定义外部作用域的名称
+        W0622,  # 重定义内置对象
+        W0702,  # 捕获所有异常
+        W0703,  # 捕获通用异常
+        W1203,  # 使用f-string进行日志格式化
+        W0612,  # 未使用的变量
+        W0613,  # 未使用的参数
+
+[REPORTS]
+# 设置输出格式
+output-format=text
+
+# 显示代码评分
+evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)
+
+# 显示统计信息
+reports=yes
+
+[FORMAT]
+# 最大行长度
+max-line-length=120
+
+# 期望的缩进宽度
+indent-after-paren=4
+
+[BASIC]
+# 变量命名规则
+variable-rgx=[a-z_][a-z0-9_]{2,30}$
+
+# 变量名最小长度
+variable-min-name-length=1
+
+# 函数命名规则
+function-rgx=[a-z_][a-z0-9_]{2,30}$
+
+# 方法命名规则
+method-rgx=[a-z_][a-z0-9_]{2,30}$
+
+# 属性命名规则
+attr-rgx=[a-z_][a-z0-9_]{2,30}$
+
+# 参数命名规则
+argument-rgx=[a-z_][a-z0-9_]{2,30}$
+
+[SIMILARITIES]
+# 最小相似行数
+min-similarity-lines=4
+
+# 忽略注释
+ignore-comments=yes
+
+# 忽略文档字符串
+ignore-docstrings=yes
+
+# 忽略导入语句
+ignore-imports=yes
+
+[TYPECHECK]
+# 忽略的模块
+ignored-modules=numpy,cv2,win32gui,win32ui,win32con,win32api,torch,PyQt6
+
+[MISCELLANEOUS]
+# 注释中允许使用TODO/FIXME
+notes=TODO,FIXME,XXX,HACK
+
+[VARIABLES]
+# 检查未使用的导入
+unused-import=yes
+
+# 允许全局变量
+allow-global-unused-variables=yes
+
+[CLASSES]
+# 检查基类是否被继承
+ignore-mixin-members=yes
+
+[IMPORTS]
+# 检查导入顺序
+wrong-import-order=yes
+
+[EXCEPTIONS]
+# 允许捕获Exception
+overgeneral-exceptions=Exception
