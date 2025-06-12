@@ -1,0 +1,11 @@
+Metadata-Version: 2.2
+Name: game_automation
+Version: 0.1.0
+Requires-Dist: pyautogui==0.9.53
+Requires-Dist: opencv-python==4.5.5.64
+Requires-Dist: numpy==1.23.5
+Requires-Dist: pyyaml==6.0
+Requires-Dist: keyboard==0.13.5
+Requires-Dist: pytest==7.4.0
+Requires-Dist: pysimplegui==4.60.5
+Dynamic: requires-dist

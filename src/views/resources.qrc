@@ -1,0 +1,13 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file>resources/icon.png</file>
+        <file>resources/window.png</file>
+        <file>resources/region.png</file>
+        <file>resources/template.png</file>
+        <file>resources/settings.png</file>
+        <file>resources/down-arrow.png</file>
+        <file>resources/play.png</file>
+        <file>resources/stop.png</file>
+    </qresource>
+</RCC> 

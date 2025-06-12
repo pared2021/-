@@ -1,0 +1,10 @@
+2025-04-24 03:07:58 - game_automation - INFO - 日志服务初始化完成
+2025-04-24 03:07:58 - game_automation - INFO - 窗口管理器初始化完成
+2025-04-24 03:07:58 - game_automation - INFO - 成功设置窗口钩子
+2025-04-24 03:07:58 - game_automation - INFO - 图像处理器初始化完成
+2025-04-24 03:07:58 - game_automation - INFO - 加载预训练的ResNet模型
+2025-04-24 03:07:59 - game_automation - INFO - 操作模拟器初始化完成
+2025-04-24 03:07:59 - game_automation - INFO - 日志级别已设置为: DEBUG
+2025-04-24 03:07:59 - game_automation - INFO - 程序启动
+2025-04-24 03:08:12 - game_automation - WARNING - 无法分析游戏状态：无效的帧数据 (类型: <class 'bool'>)
+2025-04-24 03:08:16 - game_automation - INFO - 窗口管理器资源已清理

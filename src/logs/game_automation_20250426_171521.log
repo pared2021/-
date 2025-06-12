@@ -1,0 +1,18 @@
+2025-04-26 17:15:21 - game_automation - INFO - 日志服务初始化完成
+2025-04-26 17:15:21 - game_automation - INFO - 窗口管理器初始化完成
+2025-04-26 17:15:21 - game_automation - INFO - 成功设置窗口钩子
+2025-04-26 17:15:21 - game_automation - INFO - 图像处理器初始化完成
+2025-04-26 17:15:21 - game_automation - INFO - 加载预训练的ResNet模型
+2025-04-26 17:15:22 - game_automation - INFO - 操作模拟器初始化完成
+2025-04-26 17:15:22 - game_automation - INFO - 日志级别已设置为: DEBUG
+2025-04-26 17:15:22 - game_automation - INFO - 程序启动
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 1000
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 1001
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 1002
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 1003
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 2000
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 3000
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 4000
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 5000
+2025-04-26 17:15:22 - game_automation - DEBUG - 注册恢复处理函数: 6000
+2025-04-26 17:16:12 - game_automation - INFO - 窗口管理器资源已清理

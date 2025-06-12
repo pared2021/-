@@ -1,0 +1,7 @@
+pyautogui==0.9.53
+opencv-python==4.5.5.64
+numpy==1.23.5
+pyyaml==6.0
+keyboard==0.13.5
+pytest==7.4.0
+pysimplegui==4.60.5

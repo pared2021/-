@@ -1,0 +1,5 @@
+2025-04-20 18:56:26 - game_automation - INFO - 日志服务初始化完成
+2025-04-20 18:56:26 - game_automation - INFO - 窗口管理器初始化完成
+2025-04-20 18:56:26 - game_automation - INFO - 成功设置窗口钩子
+2025-04-20 18:56:26 - game_automation - INFO - 图像处理器初始化完成
+2025-04-20 18:56:26 - game_automation - INFO - 加载预训练的ResNet模型

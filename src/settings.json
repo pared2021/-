@@ -1,0 +1,31 @@
+{
+    "window": {
+        "last_selected": "大黑塔-翡翠-记忆主-灵砂",
+        "refresh_interval": 1000
+    },
+    "template": {
+        "duration": 300,
+        "interval": 0.5,
+        "last_dir": "templates"
+    },
+    "game_state": {
+        "analysis_interval": 1000,
+        "last_state": {
+            "timestamp": 1745434621.145385,
+            "buttons": [],
+            "enemies": [],
+            "items": [],
+            "dialog_open": false,
+            "health": 100,
+            "mana": 100,
+            "position": [
+                0,
+                0
+            ],
+            "screen_size": [
+                0,
+                0
+            ]
+        }
+    }
+}
