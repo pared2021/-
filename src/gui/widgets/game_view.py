@@ -1,21 +1,49 @@
+"""
+游戏画面显示组件
+用于显示游戏窗口的实时画面
+"""
 from PyQt6.QtWidgets import QLabel
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QPixmap
 import numpy as np
 import cv2
+from typing import Optional
 
 class GameView(QLabel):
-    """游戏画面显示组件"""
+    """游戏画面显示组件
+    
+    用于显示游戏窗口的实时画面，支持：
+    1. 自动缩放以适应显示区域
+    2. 多种图像格式的转换
+    3. 错误处理和状态显示
+    """
     
     def __init__(self, parent=None):
+        """初始化游戏画面显示组件
+        
+        Args:
+            parent: 父窗口
+        """
         super().__init__(parent)
+        self.setObjectName("gameView")
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumSize(640, 480)
-        self.setStyleSheet("background-color: black;")
+        self.setStyleSheet("""
+            QLabel#gameView {
+                background-color: #000000;
+                color: #FFFFFF;
+                border: 1px solid #333333;
+                border-radius: 4px;
+            }
+        """)
         self.setText("等待游戏画面...")
         
-    def update_frame(self, frame: np.ndarray):
-        """更新画面"""
+    def update_frame(self, frame: Optional[np.ndarray]):
+        """更新画面
+        
+        Args:
+            frame: 游戏画面数据，可以是None
+        """
         if frame is None:
             self.setText("无法获取游戏画面")
             return
@@ -57,4 +85,19 @@ class GameView(QLabel):
             )
             self.setPixmap(scaled_pixmap)
         except Exception as e:
-            self.setText(f"处理图像时出错: {str(e)}") 
+            self.setText(f"处理图像时出错: {str(e)}")
+            
+    def resizeEvent(self, event):
+        """重写大小改变事件，保持图像比例
+        
+        Args:
+            event: 大小改变事件
+        """
+        super().resizeEvent(event)
+        if self.pixmap():
+            scaled_pixmap = self.pixmap().scaled(
+                self.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.setPixmap(scaled_pixmap) 

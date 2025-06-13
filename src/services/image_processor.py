@@ -1,3 +1,7 @@
+"""
+图像处理服务
+负责图像的分析、处理和模板匹配
+"""
 import cv2
 import numpy as np
 import os
@@ -7,6 +11,17 @@ from typing import Dict, List, Tuple, Optional, Any
 from PyQt6.QtCore import QObject, pyqtSignal
 from .config import Config
 from .logger import GameLogger
+from src.common.error_types import ErrorCode, ImageProcessingError, ErrorContext
+from dataclasses import dataclass
+from src.services.error_handler import ErrorHandler
+
+@dataclass
+class TemplateMatchResult:
+    """模板匹配结果"""
+    location: Tuple[int, int]
+    confidence: float
+    template_name: str
+    template_size: Tuple[int, int]
 
 class ImageProcessor(QObject):
     """图像处理类，负责图像识别和处理"""
@@ -17,74 +32,173 @@ class ImageProcessor(QObject):
     template_matched = pyqtSignal(str, list)  # 模板匹配信号
     detection_updated = pyqtSignal(dict)  # 检测更新信号
     
-    def __init__(self, logger: GameLogger, config: Config):
+    def __init__(self, logger: GameLogger, config: Config, error_handler: ErrorHandler):
         """初始化图像处理器
         
         Args:
             logger: 日志对象
             config: 配置对象
+            error_handler: 错误处理对象
         """
         super().__init__()
         self.config = config
         self.logger = logger
-        self.templates = {}
+        self.error_handler = error_handler
+        self.templates: Dict[str, np.ndarray] = {}
+        self.template_configs: Dict[str, Dict] = {}
+        self.is_initialized = False
         
         self.logger.info("图像处理器初始化完成")
     
-    def load_templates(self, templates_path: str):
-        """加载模板图像
-        
-        Args:
-            templates_path: 模板图像路径
-        """
-        if not os.path.exists(templates_path):
-            self.logger.error(f"模板路径不存在: {templates_path}")
-            raise FileNotFoundError(f"模板路径不存在: {templates_path}")
-        
-        self.logger.info(f"开始加载模板: {templates_path}")
-        for filename in os.listdir(templates_path):
-            if filename.endswith(('.png', '.jpg', '.jpeg')):
-                name = os.path.splitext(filename)[0]
-                path = os.path.join(templates_path, filename)
-                self.templates[name] = cv2.imread(path)
-                self.logger.debug(f"加载模板: {name}")
-        
-        self.logger.info(f"模板加载完成，共{len(self.templates)}个")
+    def initialize(self) -> bool:
+        """初始化图像处理器"""
+        try:
+            self.is_initialized = True
+            return True
+        except Exception as e:
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.IMAGE_PROCESSOR_INIT_FAILED,
+                    "图像处理器初始化失败",
+                    ErrorContext(
+                        source="ImageProcessor.initialize",
+                        details=str(e)
+                    )
+                )
+            )
+            return False
     
-    def match_template(self, image: np.ndarray, template_name: str, 
-                      threshold: float = None) -> List[Tuple[int, int]]:
-        """模板匹配
+    def load_template(self, name: str, image: np.ndarray, config: Dict = None) -> bool:
+        """加载模板
         
         Args:
-            image: 输入图像
+            name: 模板名称
+            image: 模板图像
+            config: 模板配置
+            
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            # 转换为灰度图
+            if len(image.shape) == 3:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                
+            self.templates[name] = image
+            self.template_configs[name] = config or {}
+            return True
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.IMAGE_ERROR,
+                    "加载模板失败",
+                    ErrorContext(
+                        error_info=str(e),
+                        error_location="ImageProcessor.load_template",
+                        template_name=name
+                    )
+                )
+            )
+            return False
+            
+    def load_template_from_file(self, name: str, file_path: str, config: Dict = None) -> bool:
+        """从文件加载模板
+        
+        Args:
+            name: 模板名称
+            file_path: 模板文件路径
+            config: 模板配置
+            
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            image = cv2.imread(file_path)
+            if image is None:
+                raise ValueError(f"无法读取模板文件: {file_path}")
+                
+            return self.load_template(name, image, config)
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.IMAGE_ERROR,
+                    "从文件加载模板失败",
+                    ErrorContext(
+                        error_info=str(e),
+                        error_location="ImageProcessor.load_template_from_file",
+                        template_name=name,
+                        file_path=file_path
+                    )
+                )
+            )
+            return False
+    
+    def match_template(self, image: np.ndarray, template_name: str, threshold: float = 0.8) -> Optional[TemplateMatchResult]:
+        """匹配模板
+        
+        Args:
+            image: 待匹配图像
             template_name: 模板名称
             threshold: 匹配阈值
             
         Returns:
-            匹配位置列表，每个位置为(x, y)元组
+            Optional[TemplateMatchResult]: 匹配结果
         """
-        if template_name not in self.templates:
-            self.logger.error(f"模板不存在: {template_name}")
-            return []
-            
-        threshold = threshold or self.config.image_processor.template_match_threshold
-        self.logger.debug(f"开始模板匹配: {template_name}, 阈值: {threshold}")
-        
         try:
-            template = self.templates[template_name]
-            result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
-            locations = np.where(result >= threshold)
-            
-            matches = []
-            for pt in zip(*locations[::-1]):
-                matches.append(pt)
+            if template_name not in self.templates:
+                return None
                 
-            self.logger.debug(f"模板匹配完成，找到{len(matches)}个匹配")
-            self.template_matched.emit(template_name, matches)
-            return matches
+            template = self.templates[template_name]
+            
+            # 转换为灰度图
+            if len(image.shape) == 3:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                
+            # 模板匹配
+            result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            
+            if max_val >= threshold:
+                return TemplateMatchResult(
+                    location=max_loc,
+                    confidence=max_val,
+                    template_name=template_name,
+                    template_size=template.shape[::-1]
+                )
+            return None
+            
         except Exception as e:
-            self.logger.error(f"模板匹配失败: {e}")
-            return []
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.IMAGE_ERROR,
+                    "模板匹配失败",
+                    ErrorContext(
+                        error_info=str(e),
+                        error_location="ImageProcessor.match_template",
+                        template_name=template_name
+                    )
+                )
+            )
+            return None
+            
+    def match_all_templates(self, image: np.ndarray, threshold: float = 0.8) -> List[TemplateMatchResult]:
+        """匹配所有模板
+        
+        Args:
+            image: 待匹配图像
+            threshold: 匹配阈值
+            
+        Returns:
+            List[TemplateMatchResult]: 匹配结果列表
+        """
+        results = []
+        for template_name in self.templates:
+            result = self.match_template(image, template_name, threshold)
+            if result:
+                results.append(result)
+        return results
     
     def find_template(self, image: np.ndarray, template_name: str, 
                      threshold: float = None) -> Optional[Tuple[int, int]]:
@@ -100,7 +214,7 @@ class ImageProcessor(QObject):
         """
         matches = self.match_template(image, template_name, threshold)
         if matches:
-            return matches[0]
+            return matches.location
         return None
     
     def find_all_templates(self, image: np.ndarray, threshold: float = None) -> Dict[str, List[Tuple[int, int]]]:
@@ -117,7 +231,7 @@ class ImageProcessor(QObject):
         for template_name in self.templates:
             matches = self.match_template(image, template_name, threshold)
             if matches:
-                results[template_name] = matches
+                results[template_name] = [matches.location]
         return results
     
     def color_detect(self, image: np.ndarray, lower_color: Tuple[int, int, int], 
@@ -155,7 +269,16 @@ class ImageProcessor(QObject):
                 
             return boxes
         except Exception as e:
-            self.logger.error(f"颜色检测失败: {e}")
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.COLOR_DETECTION_FAILED,
+                    "颜色检测失败",
+                    ErrorContext(
+                        source="ImageProcessor.color_detect",
+                        details=str(e)
+                    )
+                )
+            )
             return []
             
     def get_current_timestamp(self) -> float:
@@ -191,7 +314,16 @@ class ImageProcessor(QObject):
             return state
             
         except Exception as e:
-            self.logger.error(f"分析游戏画面失败: {str(e)}")
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.ANALYSIS_FAILED,
+                    "分析游戏画面失败",
+                    ErrorContext(
+                        source="ImageProcessor.analyze_frame",
+                        details=str(e)
+                    )
+                )
+            )
             return {}
     
     def _get_dominant_colors(self, frame: np.ndarray, n_colors: int = 5) -> List[Tuple[int, int, int]]:
@@ -219,7 +351,16 @@ class ImageProcessor(QObject):
             return colors
             
         except Exception as e:
-            self.logger.error(f"获取主要颜色失败: {str(e)}")
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.DOMINANT_COLOR_DETECTION_FAILED,
+                    "获取主要颜色失败",
+                    ErrorContext(
+                        source="ImageProcessor._get_dominant_colors",
+                        details=str(e)
+                    )
+                )
+            )
             return []
     
     def _calculate_brightness(self, frame: np.ndarray) -> float:
@@ -238,7 +379,16 @@ class ImageProcessor(QObject):
             return float(np.mean(gray))
             
         except Exception as e:
-            self.logger.error(f"计算亮度失败: {str(e)}")
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.BRIGHTNESS_CALCULATION_FAILED,
+                    "计算亮度失败",
+                    ErrorContext(
+                        source="ImageProcessor._calculate_brightness",
+                        details=str(e)
+                    )
+                )
+            )
             return 0.0
     
     def _detect_edges(self, frame: np.ndarray) -> np.ndarray:
@@ -258,5 +408,55 @@ class ImageProcessor(QObject):
             return edges
             
         except Exception as e:
-            self.logger.error(f"检测边缘失败: {str(e)}")
-            return np.zeros_like(frame[:, :, 0]) 
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.EDGE_DETECTION_FAILED,
+                    "检测边缘失败",
+                    ErrorContext(
+                        source="ImageProcessor._detect_edges",
+                        details=str(e)
+                    )
+                )
+            )
+            return np.zeros_like(frame[:, :, 0])
+    
+    def process_image(self, image: np.ndarray) -> Optional[np.ndarray]:
+        """处理图像"""
+        try:
+            if image is None or not isinstance(image, np.ndarray):
+                self.error_handler.handle_error(
+                    ImageProcessingError(
+                        ErrorCode.INVALID_IMAGE,
+                        "无效的图像数据",
+                        ErrorContext(
+                            source="ImageProcessor.process_image",
+                            details="image is None or not numpy array"
+                        )
+                    )
+                )
+                return None
+                
+            # 图像预处理
+            processed = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            processed = cv2.GaussianBlur(processed, (5, 5), 0)
+            
+            return processed
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ImageProcessingError(
+                    ErrorCode.IMAGE_PROCESSING_FAILED,
+                    "图像处理失败",
+                    ErrorContext(
+                        source="ImageProcessor.process_image",
+                        details=str(e)
+                    )
+                )
+            )
+            return None
+    
+    def cleanup(self) -> None:
+        """清理资源"""
+        self.templates.clear()
+        self.template_configs.clear()
+        self.is_initialized = False 

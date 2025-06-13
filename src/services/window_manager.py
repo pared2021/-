@@ -16,6 +16,8 @@ from .config import Config
 from .logger import GameLogger
 from .exceptions import WindowNotFoundError
 from .capture_engines import GameCaptureEngine, TargetInfo
+from src.common.error_types import ErrorCode, WindowError, ErrorContext
+from src.services.error_handler import ErrorHandler
 
 # 定义回调函数类型
 WINEVENTPROC = ctypes.WINFUNCTYPE(
@@ -39,6 +41,16 @@ class WindowRegion:
     name: str = ""
     category: str = ""
 
+@dataclass
+class WindowInfo:
+    """窗口信息"""
+    hwnd: int
+    title: str
+    class_name: str
+    rect: Tuple[int, int, int, int]
+    is_visible: bool
+    is_enabled: bool
+
 class GameWindowManager(QObject):
     """游戏窗口管理类"""
     
@@ -49,17 +61,19 @@ class GameWindowManager(QObject):
     region_removed = pyqtSignal(str)  # 区域移除信号
     screenshot_updated = pyqtSignal(object)  # 截图更新信号
     
-    def __init__(self, logger: GameLogger, config: Config):
+    def __init__(self, logger: GameLogger, config: Config, error_handler: ErrorHandler):
         """
         初始化窗口管理器
         
         Args:
             logger: 日志对象
             config: 配置对象
+            error_handler: 错误处理对象
         """
         super().__init__()
         self.logger = logger
         self.config = config
+        self.error_handler = error_handler
         
         # 窗口变量
         self.window_handle = None
@@ -361,26 +375,46 @@ class GameWindowManager(QObject):
             self.logger.error(f"获取截图失败: {e}")
             return None
     
-    def get_window_info(self) -> Dict:
-        """
-        获取窗口信息
+    def get_window_info(self, hwnd: int) -> Optional[WindowInfo]:
+        """获取窗口信息
         
+        Args:
+            hwnd: 窗口句柄
+            
         Returns:
-            Dict: 窗口信息字典
+            Optional[WindowInfo]: 窗口信息
         """
-        if not self.window_handle:
-            self.logger.warning("无法获取窗口信息: 窗口未找到")
-            return {}
-        
-        info = {
-            'handle': self.window_handle,
-            'position': self.window_rect,
-            'title': self.window_title,
-            'class': self.target_class
-        }
-        self.logger.debug(f"窗口信息: {info}")
-        return info
-    
+        try:
+            if not win32gui.IsWindow(hwnd):
+                return None
+                
+            title = win32gui.GetWindowText(hwnd)
+            class_name = win32gui.GetClassName(hwnd)
+            rect = win32gui.GetWindowRect(hwnd)
+            is_visible = win32gui.IsWindowVisible(hwnd)
+            is_enabled = win32gui.IsWindowEnabled(hwnd)
+            
+            return WindowInfo(
+                hwnd=hwnd,
+                title=title,
+                class_name=class_name,
+                rect=rect,
+                is_visible=is_visible,
+                is_enabled=is_enabled
+            )
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.WINDOW_ERROR,
+                WindowError("获取窗口信息失败"),
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="WindowManager.get_window_info",
+                    window_handle=hwnd
+                )
+            )
+            return None
+            
     def is_window_active(self) -> bool:
         """
         检查窗口是否激活

@@ -1,18 +1,21 @@
 import cv2
 import numpy as np
 import torch
+import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
 import os
+import json
 from typing import Optional, Dict, List, Any, Tuple
 from .logger import GameLogger
 from .image_processor import ImageProcessor
 from .config import Config
+from src.common.error_types import ErrorCode, ModelError, ErrorContext
 
 class GameAnalyzer:
     """游戏分析器，使用深度学习模型识别游戏元素"""
     
-    def __init__(self, logger: GameLogger, image_processor: ImageProcessor, config: Config):
+    def __init__(self, logger: GameLogger, image_processor: ImageProcessor, config: Config, error_handler):
         """
         初始化游戏分析器
         
@@ -20,15 +23,16 @@ class GameAnalyzer:
             logger: 日志服务
             image_processor: 图像处理服务
             config: 配置
+            error_handler: 错误处理服务
         """
         self.logger = logger
         self.image_processor = image_processor
         self.config = config
-        
-        # 加载预训练的ResNet模型
-        self.logger.info("加载预训练的ResNet模型")
-        self.model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
-        self.model.eval()
+        self.error_handler = error_handler
+        self.model = None
+        self.is_initialized = False
+        self.model_path = "models/game_model.pth"
+        self.model_config = "models/model_config.json"
         
         # 图像预处理
         self.transform = transforms.Compose([
@@ -43,6 +47,316 @@ class GameAnalyzer:
         # 加载自定义分类器
         self.custom_classifier = None
         self.class_names = []
+        
+    def initialize(self) -> bool:
+        """初始化游戏分析器"""
+        try:
+            # 加载模型配置
+            if os.path.exists(self.model_config):
+                try:
+                    with open(self.model_config, 'r', encoding='utf-8') as f:
+                        self.model_config = json.load(f)
+                except Exception as e:
+                    self.error_handler.handle_error(
+                        ModelError(
+                            ErrorCode.MODEL_CONFIG_LOAD_FAILED,
+                            "加载模型配置失败",
+                            ErrorContext(
+                                source="GameAnalyzer.initialize",
+                                details=str(e)
+                            )
+                        )
+                    )
+            
+            self.is_initialized = True
+            return True
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ModelError(
+                    ErrorCode.MODEL_INIT_FAILED,
+                    "游戏分析器初始化失败",
+                    ErrorContext(
+                        source="GameAnalyzer.initialize",
+                        details=str(e)
+                    )
+                )
+            )
+            return False
+            
+    def load_model(self) -> bool:
+        """加载模型"""
+        try:
+            if not self.is_initialized:
+                self.error_handler.handle_error(
+                    ModelError(
+                        ErrorCode.MODEL_NOT_INITIALIZED,
+                        "游戏分析器未初始化",
+                        ErrorContext(
+                            source="GameAnalyzer.load_model",
+                            details="is_initialized is False"
+                        )
+                    )
+                )
+                return False
+                
+            if not os.path.exists(self.model_path):
+                self.error_handler.handle_error(
+                    ModelError(
+                        ErrorCode.MODEL_FILE_NOT_FOUND,
+                        f"模型文件不存在: {self.model_path}",
+                        ErrorContext(
+                            source="GameAnalyzer.load_model",
+                            details=f"模型路径: {self.model_path}"
+                        )
+                    )
+                )
+                return False
+                
+            # 创建模型
+            self.model = self._create_model()
+            
+            # 加载模型权重
+            self.model.load_state_dict(torch.load(self.model_path))
+            self.model.eval()
+            
+            return True
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ModelError(
+                    ErrorCode.MODEL_LOAD_FAILED,
+                    "模型加载失败",
+                    ErrorContext(
+                        source="GameAnalyzer.load_model",
+                        details=str(e)
+                    )
+                )
+            )
+            return False
+            
+    def reload_model(self) -> bool:
+        """重新加载模型"""
+        try:
+            self.model = None
+            return self.load_model()
+        except Exception as e:
+            self.error_handler.handle_error(
+                ModelError(
+                    ErrorCode.MODEL_RELOAD_FAILED,
+                    "模型重新加载失败",
+                    ErrorContext(
+                        source="GameAnalyzer.reload_model",
+                        details=str(e)
+                    )
+                )
+            )
+            return False
+            
+    def analyze_frame(self, frame: np.ndarray) -> Optional[Dict[str, Any]]:
+        """分析游戏画面"""
+        try:
+            if not self.is_initialized:
+                self.error_handler.handle_error(
+                    ModelError(
+                        ErrorCode.MODEL_NOT_INITIALIZED,
+                        "游戏分析器未初始化",
+                        ErrorContext(
+                            source="GameAnalyzer.analyze_frame",
+                            details="is_initialized is False"
+                        )
+                    )
+                )
+                return None
+                
+            if self.model is None:
+                self.error_handler.handle_error(
+                    ModelError(
+                        ErrorCode.MODEL_NOT_LOADED,
+                        "模型未加载",
+                        ErrorContext(
+                            source="GameAnalyzer.analyze_frame",
+                            details="model is None"
+                        )
+                    )
+                )
+                return None
+                
+            # 预处理图像
+            processed_frame = self._preprocess_frame(frame)
+            if processed_frame is None:
+                return None
+                
+            # 模型推理
+            with torch.no_grad():
+                output = self.model(processed_frame)
+                
+            # 后处理结果
+            result = self._postprocess_output(output)
+            
+            return result
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ModelError(
+                    ErrorCode.MODEL_INFERENCE_FAILED,
+                    "模型推理失败",
+                    ErrorContext(
+                        source="GameAnalyzer.analyze_frame",
+                        details=str(e)
+                    )
+                )
+            )
+            return None
+            
+    def is_model_loaded(self) -> bool:
+        """检查模型是否已加载"""
+        return self.model is not None
+        
+    def _create_model(self) -> nn.Module:
+        """创建模型"""
+        try:
+            # 根据配置创建模型
+            model_config = self.model_config.get('model', {})
+            model_type = model_config.get('type', 'cnn')
+            
+            if model_type == 'cnn':
+                return self._create_cnn_model(model_config)
+            else:
+                self.error_handler.handle_error(
+                    ModelError(
+                        ErrorCode.UNKNOWN_MODEL_TYPE,
+                        f"未知的模型类型: {model_type}",
+                        ErrorContext(
+                            source="GameAnalyzer._create_model",
+                            details=f"model_type: {model_type}"
+                        )
+                    )
+                )
+                return None
+                
+        except Exception as e:
+            self.error_handler.handle_error(
+                ModelError(
+                    ErrorCode.MODEL_CREATION_FAILED,
+                    "模型创建失败",
+                    ErrorContext(
+                        source="GameAnalyzer._create_model",
+                        details=str(e)
+                    )
+                )
+            )
+            return None
+            
+    def _create_cnn_model(self, config: Dict[str, Any]) -> nn.Module:
+        """创建CNN模型"""
+        try:
+            # 获取配置参数
+            input_channels = config.get('input_channels', 3)
+            num_classes = config.get('num_classes', 10)
+            
+            # 创建模型
+            model = nn.Sequential(
+                nn.Conv2d(input_channels, 32, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Conv2d(32, 64, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Conv2d(64, 128, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Flatten(),
+                nn.Linear(128 * 8 * 8, 512),
+                nn.ReLU(),
+                nn.Linear(512, num_classes)
+            )
+            
+            return model
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ModelError(
+                    ErrorCode.CNN_MODEL_CREATION_FAILED,
+                    "CNN模型创建失败",
+                    ErrorContext(
+                        source="GameAnalyzer._create_cnn_model",
+                        details=str(e)
+                    )
+                )
+            )
+            return None
+            
+    def _preprocess_frame(self, frame: np.ndarray) -> Optional[torch.Tensor]:
+        """预处理图像"""
+        try:
+            if frame is None or not isinstance(frame, np.ndarray):
+                self.error_handler.handle_error(
+                    ModelError(
+                        ErrorCode.INVALID_FRAME,
+                        "无效的图像数据",
+                        ErrorContext(
+                            source="GameAnalyzer._preprocess_frame",
+                            details="frame is None or not numpy array"
+                        )
+                    )
+                )
+                return None
+                
+            # 调整大小
+            frame = cv2.resize(frame, (64, 64))
+            
+            # 转换为张量
+            frame = torch.from_numpy(frame).float()
+            frame = frame.permute(2, 0, 1)  # HWC -> CHW
+            frame = frame.unsqueeze(0)  # 添加批次维度
+            
+            return frame
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ModelError(
+                    ErrorCode.FRAME_PREPROCESSING_FAILED,
+                    "图像预处理失败",
+                    ErrorContext(
+                        source="GameAnalyzer._preprocess_frame",
+                        details=str(e)
+                    )
+                )
+            )
+            return None
+            
+    def _postprocess_output(self, output: torch.Tensor) -> Dict[str, Any]:
+        """后处理模型输出"""
+        try:
+            # 获取预测结果
+            predictions = output.softmax(dim=1)
+            class_idx = predictions.argmax(dim=1).item()
+            confidence = predictions[0, class_idx].item()
+            
+            return {
+                'class': class_idx,
+                'confidence': confidence,
+                'predictions': predictions[0].tolist()
+            }
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ModelError(
+                    ErrorCode.OUTPUT_POSTPROCESSING_FAILED,
+                    "输出后处理失败",
+                    ErrorContext(
+                        source="GameAnalyzer._postprocess_output",
+                        details=str(e)
+                    )
+                )
+            )
+            return {}
+            
+    def cleanup(self) -> None:
+        """清理资源"""
+        self.model = None
+        self.is_initialized = False
         
     def load_custom_classifier(self, model_path: str, class_names: List[str]) -> bool:
         """
@@ -92,140 +406,33 @@ class GameAnalyzer:
             self.logger.error(f"提取图像特征失败: {e}")
             return np.array([])
         
-    def analyze_frame(self, frame: Optional[np.ndarray]) -> Dict[str, Any]:
+    def analyze_game_state(self, frame: np.ndarray) -> Dict[str, Any]:
         """
-        分析游戏画面帧
+        分析游戏状态
         
         Args:
-            frame (Optional[np.ndarray]): 游戏画面帧数据
+            frame: 输入图像
             
         Returns:
-            Dict[str, Any]: 游戏状态字典
+            Dict[str, Any]: 游戏状态信息
         """
         try:
-            # 创建基本的默认状态字典
-            default_state = {
-                "timestamp": self.image_processor.get_current_timestamp(),
-                "buttons": [],
-                "enemies": [],
-                "items": [],
-                "dialog_open": False,
-                "health": 100,  # 默认满血
-                "mana": 100,    # 默认满蓝
-                "position": (0, 0),  # 默认位置
-                "screen_size": (0, 0)  # 默认屏幕大小
+            # 分析画面
+            analysis = self.analyze_frame(frame)
+            
+            # 检测物体
+            objects = self.detect_objects(frame)
+            
+            return {
+                'analysis': analysis,
+                'objects': objects
             }
-            
-            # 检查帧数据是否为None
-            if frame is None:
-                self.logger.warning("无法分析游戏画面：帧数据为空")
-                return default_state
-            
-            # 处理布尔型帧(可能是capture_window的错误返回)
-            if isinstance(frame, bool):
-                self.logger.warning(f"无法分析游戏画面：帧数据类型错误 ({type(frame)})")
-                return default_state
-            
-            # 检查是否是numpy数组
-            if not isinstance(frame, np.ndarray):
-                self.logger.warning(f"无法分析游戏画面：帧数据不是numpy数组 ({type(frame)})")
-                try:
-                    frame = np.array(frame)
-                    self.logger.debug("成功将帧数据转换为numpy数组")
-                except Exception as e:
-                    self.logger.error(f"转换帧数据为numpy数组失败: {e}")
-                    return default_state
-                
-            # 尝试将非numpy数组转换为numpy数组
-            if not isinstance(frame, np.ndarray):
-                try:
-                    self.logger.warning(f"尝试将 {type(frame)} 转换为numpy数组")
-                    frame = np.array(frame)
-                except Exception as e:
-                    self.logger.warning(f"无法分析游戏画面：帧数据类型转换失败 ({e})")
-                    return default_state
-                
-            if frame.size == 0:
-                self.logger.warning("无法分析游戏画面：帧数据为空数组")
-                return default_state
-                
-            if len(frame.shape) != 3:
-                self.logger.warning(f"无法分析游戏画面：帧数据维度错误 ({frame.shape})")
-                return default_state
-                
-            # 检查并修复通道数
-            if frame.shape[2] != 3:
-                self.logger.warning(f"帧数据通道数错误 ({frame.shape[2]})，尝试转换")
-                try:
-                    if frame.shape[2] == 4:  # RGBA/BGRA
-                        frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
-                        self.logger.debug("成功将BGRA转换为BGR")
-                    elif frame.shape[2] == 1:  # 灰度图
-                        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-                        self.logger.debug("成功将灰度图转换为BGR")
-                    else:
-                        self.logger.warning(f"无法处理的通道数: {frame.shape[2]}")
-                        return default_state
-                except Exception as e:
-                    self.logger.warning(f"通道转换失败: {e}")
-                    return default_state
-                
-            # 检查图像是否全黑或全白
-            if np.all(frame == 0):
-                self.logger.warning("无法分析游戏画面：帧数据全黑")
-                return default_state
-                
-            if np.all(frame == 255):
-                self.logger.warning("无法分析游戏画面：帧数据全白")
-                return default_state
-            
-            # 更新状态字典，使用默认状态作为基础
-            state = default_state.copy()
-            state["screen_size"] = frame.shape[:2][::-1]  # 宽高
-            self.logger.debug(f"画面大小: {state['screen_size']}")
-            
-            # 检测按钮
-            buttons = self._detect_buttons(frame)
-            if buttons:
-                state["buttons"] = buttons
-                
-            # 检测敌人
-            enemies = self._detect_enemies(frame)
-            if enemies:
-                state["enemies"] = enemies
-                
-            # 检测物品
-            items = self._detect_items(frame)
-            if items:
-                state["items"] = items
-                
-            # 检测对话框
-            dialog_info = self._detect_dialog(frame)
-            if dialog_info:
-                state["dialog_open"] = True
-                state["dialog"] = dialog_info
-                
-            # 检测生命值和法力值
-            health, mana = self._detect_health_mana(frame)
-            if health is not None:
-                state["health"] = health
-            if mana is not None:
-                state["mana"] = mana
-                
-            # 检测玩家位置
-            position = self._detect_player_position(frame)
-            if position:
-                state["position"] = position
-                
-            # 分析完成
-            self.logger.debug("成功分析游戏画面")
-            return state
-            
         except Exception as e:
-            self.logger.error(f"分析游戏画面时出错: {str(e)}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-            return default_state
+            self.logger.error(f"分析游戏状态失败: {e}")
+            return {
+                'analysis': None,
+                'objects': []
+            }
     
     def _detect_buttons(self, frame: np.ndarray) -> List[Dict[str, Any]]:
         """检测按钮

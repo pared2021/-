@@ -24,9 +24,12 @@ from PyQt6.QtWidgets import (
     QStatusBar,
     QFileDialog,
     QDockWidget,
+    QGroupBox,
+    QListWidget,
+    QDialog,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QIcon, QFont, QAction
+from PyQt6.QtGui import QIcon, QFont, QAction, QImage, QPixmap
 import logging
 import json
 import os
@@ -34,7 +37,7 @@ from pathlib import Path
 
 from core.resource_manager import ResourceManager
 from core.task_system import TaskScheduler, Task, TaskPriority, TaskStatus
-from core.error_handler import ErrorHandler
+from core.error_handler import ErrorHandler, ErrorCode, ErrorContext
 from core.game_adapter import GameAdapter
 from macro.macro_recorder import MacroRecorder
 from macro.macro_player import MacroPlayer
@@ -42,8 +45,22 @@ from macro.macro_editor import MacroEditor
 from editor.script_editor import ScriptEditor
 from editor.code_formatter import CodeFormatter
 from editor.project_manager import ProjectManager
-from performance.performance_monitor import PerformanceMonitor
+from performance.performance_monitor import PerformanceMonitor, PerformanceMetrics
 from performance.performance_view import PerformanceView
+from services.window_manager import WindowManager, WindowInfo
+from services.image_processor import ImageProcessor, TemplateMatchResult
+from services.auto_operator import AutoOperator, Action
+from services.game_state_analyzer import GameStateAnalyzer, GameState
+from .state_history_view import StateHistoryView
+from .widgets.game_view import GameView
+from .widgets.control_panel import ControlPanel
+from services.window.window_capture import WindowCapture
+from services.vision.template_matcher import TemplateMatcher
+from services.vision.state_recognizer import StateRecognizer
+from services.automation.auto_controller import AutoController
+from .dialogs.template_manager_dialog import TemplateManagerDialog
+from .dialogs.automation_manager_dialog import AutomationManagerDialog
+from .dialogs.config_manager_dialog import ConfigManagerDialog
 
 
 class MainWindow(QMainWindow):
@@ -51,13 +68,17 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("游戏自动化工具")
+        self.setWindowTitle("游戏自动化操作系统")
         self.setMinimumSize(1200, 800)
 
         # 初始化组件
         self.resource_manager = ResourceManager("config/resource.json")
         self.task_scheduler = TaskScheduler(self.resource_manager)
         self.error_handler = ErrorHandler("logs/snapshots")
+        self.window_manager = WindowManager(self.error_handler)
+        self.image_processor = ImageProcessor(self.error_handler)
+        self.auto_operator = AutoOperator(self.error_handler, self.window_manager, self.image_processor)
+        self.game_state_analyzer = GameStateAnalyzer(self.error_handler)
         self.game_adapters: Dict[str, GameAdapter] = {}
 
         # 初始化新组件
@@ -66,22 +87,48 @@ class MainWindow(QMainWindow):
         self.macro_editor = MacroEditor()
         self.code_formatter = CodeFormatter()
         self.project_manager = ProjectManager()
-        self.performance_monitor = None  # 在选择游戏后初始化
+        self.performance_monitor = PerformanceMonitor(self.error_handler)
+        self.state_history = StateHistoryView()  # 状态历史视图
+        self.game_view = GameView()  # 游戏画面显示
+        self.control_panel = ControlPanel()  # 控制面板
+        self.window_capture = WindowCapture(self.error_handler)
+        self.template_matcher = TemplateMatcher(self.error_handler)
+        self.state_recognizer = StateRecognizer(self.error_handler)
+        self.auto_controller = AutoController(self.error_handler)
+
+        # 初始化状态
+        self.current_window: Optional[WindowInfo] = None
+        self.current_frame = None
+        self.current_state: Optional[GameState] = None
+        self.is_automation_running = False
 
         # 创建UI
         self._create_ui()
         self._create_toolbar()
         self._create_statusbar()
         self._create_docks()
+        self._connect_signals()
 
         # 启动监控
         self.resource_manager.start_monitoring()
         self.task_scheduler.start()
 
-        # 更新定时器
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self._update_status)
-        self.update_timer.start(1000)  # 每秒更新一次
+        # 初始化定时器
+        self.capture_timer = QTimer()
+        self.capture_timer.timeout.connect(self._on_capture_timeout)
+        self.capture_timer.start(100)  # 10fps
+        
+        self.monitor_timer = QTimer()
+        self.monitor_timer.timeout.connect(self._on_monitor_timeout)
+        self.monitor_timer.start(1000)  # 1fps
+
+        self.error_handler = ErrorHandler()
+        self.config_dir = "config"
+        self.config_file = "config.json"
+        
+        self._init_services()
+        self._load_config()
+        self._init_timers()
 
     def _create_ui(self):
         """创建UI界面"""
@@ -90,22 +137,19 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
         # 创建主布局
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
 
         # 创建分割器
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # 左侧控制面板
-        control_panel = self._create_control_panel()
-        splitter.addWidget(control_panel)
+        splitter.addWidget(self.control_panel)
 
-        # 中间编辑区域
-        edit_panel = self._create_edit_panel()
-        splitter.addWidget(edit_panel)
+        # 中间游戏画面
+        splitter.addWidget(self.game_view)
 
         # 右侧状态面板
-        status_panel = self._create_status_panel()
-        splitter.addWidget(status_panel)
+        splitter.addWidget(self.state_history)
 
         # 设置分割比例
         splitter.setSizes([200, 600, 400])
@@ -118,39 +162,33 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         # 文件操作
-        new_action = QAction("新建项目", self)
-        new_action.triggered.connect(self._on_new_project)
+        new_action = QAction("新建配置", self)
+        new_action.triggered.connect(self._on_new_config)
         toolbar.addAction(new_action)
 
-        open_action = QAction("打开项目", self)
-        open_action.triggered.connect(self._on_open_project)
+        open_action = QAction("打开配置", self)
+        open_action.triggered.connect(self._on_open_config)
         toolbar.addAction(open_action)
 
-        save_action = QAction("保存", self)
-        save_action.triggered.connect(self._on_save)
+        save_action = QAction("保存配置", self)
+        save_action.triggered.connect(self._on_save_config)
         toolbar.addAction(save_action)
 
         toolbar.addSeparator()
 
-        # 宏操作
-        record_action = QAction("录制宏", self)
-        record_action.triggered.connect(self._on_record_macro)
-        toolbar.addAction(record_action)
+        # 状态模板操作
+        add_template_action = QAction("添加状态模板", self)
+        add_template_action.triggered.connect(self._on_add_state_template)
+        toolbar.addAction(add_template_action)
 
-        play_action = QAction("播放宏", self)
-        play_action.triggered.connect(self._on_play_macro)
-        toolbar.addAction(play_action)
+        edit_template_action = QAction("编辑状态模板", self)
+        edit_template_action.triggered.connect(self._on_edit_state_template)
+        toolbar.addAction(edit_template_action)
 
-        toolbar.addSeparator()
-
-        # 代码操作
-        format_action = QAction("格式化代码", self)
-        format_action.triggered.connect(self._on_format_code)
-        toolbar.addAction(format_action)
-
-        check_action = QAction("代码检查", self)
-        check_action.triggered.connect(self._on_check_code)
-        toolbar.addAction(check_action)
+        # 自动化操作
+        automation_action = QAction("自动化", self)
+        automation_action.triggered.connect(self._on_manage_automation)
+        toolbar.addAction(automation_action)
 
     def _create_statusbar(self):
         """创建状态栏"""
@@ -169,6 +207,14 @@ class MainWindow(QMainWindow):
         self.fps_label = QLabel("FPS: 0")
         statusbar.addPermanentWidget(self.fps_label)
 
+        # 当前状态
+        self.state_label = QLabel("状态: 未知")
+        statusbar.addPermanentWidget(self.state_label)
+
+        # 性能标签
+        self.performance_label = QLabel()
+        statusbar.addPermanentWidget(self.performance_label)
+
     def _create_docks(self):
         """创建停靠窗口"""
         # 项目浏览器
@@ -182,319 +228,449 @@ class MainWindow(QMainWindow):
         performance_dock.setWidget(self.performance_view)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, performance_dock)
 
-    def _create_control_panel(self) -> QWidget:
-        """创建控制面板"""
-        panel = QWidget()
-        layout = QVBoxLayout(panel)
+    def _connect_signals(self):
+        """连接信号"""
+        # 控制面板信号
+        self.control_panel.window_selected.connect(self._on_window_selected)
+        self.control_panel.refresh_clicked.connect(self._on_refresh_windows)
+        self.control_panel.analyze_clicked.connect(self._on_analyze_game)
+        self.control_panel.start_clicked.connect(self._on_start_automation)
+        self.control_panel.stop_clicked.connect(self._on_stop_automation)
 
-        # 游戏选择
-        game_group = QWidget()
-        game_layout = QHBoxLayout(game_group)
-        game_layout.addWidget(QLabel("选择游戏:"))
-        self.game_combo = QComboBox()
-        self.game_combo.currentTextChanged.connect(self._on_game_changed)
-        game_layout.addWidget(self.game_combo)
-        layout.addWidget(game_group)
-
-        # 任务控制
-        task_group = QWidget()
-        task_layout = QHBoxLayout(task_group)
-        self.start_button = QPushButton("开始")
-        self.start_button.clicked.connect(self._on_start_clicked)
-        self.stop_button = QPushButton("停止")
-        self.stop_button.clicked.connect(self._on_stop_clicked)
-        task_layout.addWidget(self.start_button)
-        task_layout.addWidget(self.stop_button)
-        layout.addWidget(task_group)
-
-        # 宏控制
-        macro_group = QWidget()
-        macro_layout = QHBoxLayout(macro_group)
-        self.record_button = QPushButton("录制")
-        self.record_button.clicked.connect(self._on_record_macro)
-        self.play_button = QPushButton("播放")
-        self.play_button.clicked.connect(self._on_play_macro)
-        macro_layout.addWidget(self.record_button)
-        macro_layout.addWidget(self.play_button)
-        layout.addWidget(macro_group)
-
-        return panel
-
-    def _create_edit_panel(self) -> QWidget:
-        """创建编辑面板"""
-        panel = QWidget()
-        layout = QVBoxLayout(panel)
-
-        # 创建标签页
-        tabs = QTabWidget()
-
-        # 脚本编辑器
-        self.script_editor = ScriptEditor()
-        tabs.addTab(self.script_editor, "脚本编辑器")
-
-        # 宏编辑器
-        macro_editor_widget = QWidget()
-        macro_layout = QVBoxLayout(macro_editor_widget)
-        self.macro_tree = QTreeWidget()
-        self.macro_tree.setHeaderLabels(["时间", "类型", "数据"])
-        macro_layout.addWidget(self.macro_tree)
-        tabs.addTab(macro_editor_widget, "宏编辑器")
-
-        # 配置编辑器
-        self.config_editor = QTextEdit()
-        self.config_editor.setFont(QFont("Consolas", 10))
-        tabs.addTab(self.config_editor, "配置编辑器")
-
-        layout.addWidget(tabs)
-        return panel
-
-    def _create_status_panel(self) -> QWidget:
-        """创建状态面板"""
-        panel = QWidget()
-        layout = QVBoxLayout(panel)
-
-        # 创建标签页
-        tabs = QTabWidget()
-
-        # 资源监控标签页
-        resource_tab = self._create_resource_tab()
-        tabs.addTab(resource_tab, "资源监控")
-
-        # 任务状态标签页
-        task_tab = self._create_task_tab()
-        tabs.addTab(task_tab, "任务状态")
-
-        # 错误日志标签页
-        log_tab = self._create_log_tab()
-        tabs.addTab(log_tab, "错误日志")
-
-        layout.addWidget(tabs)
-        return panel
-
-    def _create_project_browser(self) -> QWidget:
-        """创建项目浏览器"""
-        browser = QTreeWidget()
-        browser.setHeaderLabels(["项目文件"])
-        browser.itemDoubleClicked.connect(self._on_file_double_clicked)
-        return browser
-
-    def _update_status(self):
-        """更新状态显示"""
-        # 更新资源使用
-        stats = self.resource_manager.get_resource_stats()
-
-        if "cpu" in stats:
-            cpu_value = int(stats["cpu"]["current"])
-            self.cpu_bar.setValue(cpu_value)
-            self.cpu_label.setText(f"CPU: {cpu_value}%")
-
-        if "memory" in stats:
-            memory_mb = stats["memory"]["current"]
-            memory_percent = (
-                memory_mb / self.resource_manager.resource_limit.max_memory_mb * 100
+    def _on_capture_timeout(self):
+        """捕获定时器超时处理"""
+        if not self.current_window:
+            return
+            
+        # 捕获窗口
+        frame = self.window_capture.capture_window(self.current_window.hwnd)
+        if frame is None:
+            return
+            
+        # 更新游戏视图
+        self._update_game_view(frame)
+        
+        # 如果自动化正在运行，分析游戏状态
+        if self.is_automation_running:
+            self._analyze_game_state(frame)
+            
+    def _on_monitor_timeout(self):
+        """监控定时器超时处理"""
+        # 更新性能指标
+        metrics = self.performance_monitor.update()
+        if metrics:
+            self._update_performance_display(metrics)
+            
+    def _update_game_view(self, frame):
+        """更新游戏视图
+        
+        Args:
+            frame: 游戏画面
+        """
+        try:
+            # 转换图像格式
+            height, width, channel = frame.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            
+            # 缩放图像
+            pixmap = QPixmap.fromImage(q_image)
+            scaled_pixmap = pixmap.scaled(self.game_view.size(), 
+                                        Qt.KeepAspectRatio,
+                                        Qt.SmoothTransformation)
+            
+            # 显示图像
+            self.game_view.update_frame(scaled_pixmap)
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.UI_ERROR,
+                "更新游戏视图失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._update_game_view"
+                )
             )
-            self.memory_bar.setValue(int(memory_percent))
-            self.memory_label.setText(f"内存: {memory_mb:.1f}MB")
-
-        # 更新性能监控
-        if self.performance_monitor:
-            metrics = self.performance_monitor.get_current_metrics()
-            if metrics:
-                self.fps_label.setText(f"FPS: {metrics.fps:.1f}")
-
-        # 更新任务状态
-        self._update_task_tree()
-
-    def _update_task_tree(self):
-        """更新任务树"""
-        self.task_tree.clear()
-
-        for task in self.task_scheduler.get_tasks():
-            item = QTreeWidgetItem(
-                [task.name, task.status.name, task.priority.name, str(task.retry_count)]
+            
+    def _analyze_game_state(self, frame):
+        """分析游戏状态
+        
+        Args:
+            frame: 游戏画面
+        """
+        try:
+            # 分析游戏状态
+            state = self.state_recognizer.analyze_frame(frame)
+            if state:
+                self.current_state = state
+                self._update_state_display(state)
+                
+                # 执行自动化
+                self.auto_controller.execute(state)
+                
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.STATE_ANALYSIS_ERROR,
+                "分析游戏状态失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._analyze_game_state"
+                )
             )
-            self.task_tree.addTopLevelItem(item)
-
-    def _on_game_changed(self, game_name: str):
-        """游戏选择改变"""
-        if game_name in self.game_adapters:
-            adapter = self.game_adapters[game_name]
-
-            # 更新性能监控
-            if self.performance_monitor:
-                self.performance_monitor.stop()
-            self.performance_monitor = PerformanceMonitor(adapter.window_title)
-            self.performance_monitor.start()
-
-            # 加载游戏配置
-            self.config_editor.setPlainText(
-                json.dumps(adapter.get_config(), indent=2, ensure_ascii=False)
-            )
-
-    def _on_new_project(self):
-        """新建项目"""
-        path, _ = QFileDialog.getSaveFileName(
-            self, "新建项目", "", "Python Projects (*.pyproj);;All Files (*.*)"
+            
+    def _update_state_display(self, state: GameState):
+        """更新状态显示
+        
+        Args:
+            state: 游戏状态
+        """
+        # 更新状态标签
+        self.state_label.setText(f"当前状态: {state.name} (置信度: {state.confidence:.2f})")
+        
+        # 更新状态历史
+        state_info = {
+            'value': state.confidence,
+            'description': f"状态: {state.name} (置信度: {state.confidence:.2f})"
+        }
+        self.state_history.add_state(state_info)
+        
+        # 限制历史记录数量
+        while self.state_history.count() > 100:
+            self.state_history.remove_state(0)
+            
+    def _update_performance_display(self, metrics: PerformanceMetrics):
+        """更新性能显示
+        
+        Args:
+            metrics: 性能指标
+        """
+        # 更新性能标签
+        self.cpu_label.setText(f"CPU: {metrics.cpu_percent:.1f}%")
+        self.memory_label.setText(f"内存: {metrics.memory_percent:.1f}MB")
+        self.fps_label.setText(f"FPS: {metrics.fps:.1f}")
+        
+        # 更新状态栏性能标签
+        self.performance_label.setText(
+            f"CPU: {metrics.cpu_percent:.1f}% | "
+            f"内存: {metrics.memory_percent:.1f}MB | "
+            f"FPS: {metrics.fps:.1f}"
         )
+        
+    def _on_window_selected(self, hwnd: int):
+        """窗口选择事件
+        
+        Args:
+            hwnd: 窗口句柄
+        """
+        if hwnd:
+            # 获取窗口信息
+            window_info = self.window_manager.get_window_info(hwnd)
+            if window_info:
+                # 更新游戏画面
+                self.window_capture.start_capture(hwnd, self._on_frame_captured)
+                
+                # 初始化性能监控
+                if self.performance_monitor:
+                    self.performance_monitor.stop()
+                self.performance_monitor.start()
 
-        if path:
-            try:
-                project_path = Path(path).parent
-                project_name = Path(path).stem
-                self.project_manager.create_project(project_path, project_name)
-                self._update_project_tree()
-            except Exception as e:
-                QMessageBox.critical(self, "错误", f"创建项目失败: {str(e)}")
+    def _on_frame_captured(self, frame):
+        """帧捕获回调
+        
+        Args:
+            frame: 捕获的帧
+        """
+        # 更新游戏画面
+        self._update_game_view(frame)
+        
+        # 分析游戏状态
+        if self.control_panel.is_automation_running():
+            self._analyze_game_state(frame)
 
-    def _on_open_project(self):
-        """打开项目"""
-        path = QFileDialog.getExistingDirectory(self, "打开项目")
+    def _on_refresh_windows(self):
+        """刷新窗口列表"""
+        # 获取窗口列表
+        windows = self.window_manager.get_window_list()
+        
+        # 更新控制面板
+        window_titles = [w.title for w in windows]
+        self.control_panel.set_window_list(window_titles)
 
-        if path:
-            try:
-                self.project_manager.open_project(Path(path))
-                self._update_project_tree()
-            except Exception as e:
-                QMessageBox.critical(self, "错误", f"打开项目失败: {str(e)}")
+    def _on_analyze_game(self):
+        """分析游戏状态"""
+        # 获取当前帧
+        frame = self.game_view.get_current_frame()
+        if frame is not None:
+            self._analyze_game_state(frame)
 
-    def _update_project_tree(self):
-        """更新项目树"""
-        if not self.project_manager.current_project:
-            return
-
-        project_files = self.project_manager.get_project_files()
-
-        # 清空树
-        browser = self.findChild(QTreeWidget)
-        if not browser:
-            return
-        browser.clear()
-
-        # 创建根节点
-        root = QTreeWidgetItem([self.project_manager.current_project.path.name])
-        browser.addTopLevelItem(root)
-
-        # 添加文件
-        for file in project_files:
-            rel_path = file.relative_to(self.project_manager.current_project.path)
-            parts = rel_path.parts
-
-            # 创建目录节点
-            current = root
-            for i, part in enumerate(parts[:-1]):
-                # 查找是否已存在
-                found = False
-                for j in range(current.childCount()):
-                    child = current.child(j)
-                    if child.text(0) == part:
-                        current = child
-                        found = True
-                        break
-
-                if not found:
-                    current = QTreeWidgetItem(current, [part])
-
-            # 添加文件节点
-            QTreeWidgetItem(current, [parts[-1]])
-
-        # 展开根节点
-        root.setExpanded(True)
-
-    def _on_file_double_clicked(self, item: QTreeWidgetItem, column: int):
-        """双击文件"""
-        if not item.parent():  # 根节点
-            return
-
-        # 构建完整路径
-        path_parts = []
-        current = item
-        while current:
-            path_parts.insert(0, current.text(0))
-            current = current.parent()
-
-        file_path = self.project_manager.current_project.path.joinpath(*path_parts)
-
-        if file_path.exists() and file_path.is_file():
-            # 在脚本编辑器中打开
-            self.script_editor.load_file(str(file_path))
-
-            # 记录最近文件
-            self.project_manager.add_recent_file(file_path)
-
-    def _on_save(self):
-        """保存当前文件"""
-        self.script_editor.save_file()
-
-    def _on_record_macro(self):
-        """录制宏"""
-        if self.macro_recorder.is_recording:
-            # 停止录制
-            self.macro_recorder.stop()
-            self.record_button.setText("录制")
-
-            # 更新宏编辑器
-            self._update_macro_tree()
-        else:
-            # 开始录制
-            self.macro_recorder.start()
-            self.record_button.setText("停止录制")
-
-    def _update_macro_tree(self):
-        """更新宏树"""
-        self.macro_tree.clear()
-
-        for event in self.macro_recorder.events:
-            item = QTreeWidgetItem(
-                [f"{event.timestamp:.3f}", event.type.name, str(event.data)]
-            )
-            self.macro_tree.addTopLevelItem(item)
-
-    def _on_play_macro(self):
-        """播放宏"""
-        if not self.macro_recorder.events:
-            QMessageBox.warning(self, "警告", "没有可播放的宏")
-            return
-
-        if self.macro_player.status == "PLAYING":
-            # 停止播放
-            self.macro_player.stop()
-            self.play_button.setText("播放")
-        else:
-            # 开始播放
-            self.macro_player.load_events(self.macro_recorder.events)
-            self.macro_player.start()
-            self.play_button.setText("停止播放")
-
-    def _on_format_code(self):
-        """格式化代码"""
-        code = self.script_editor.toPlainText()
-        formatted_code = self.code_formatter.format_code(code)
-        self.script_editor.setPlainText(formatted_code)
-
-    def _on_check_code(self):
-        """检查代码"""
-        code = self.script_editor.toPlainText()
-
-        # 语法检查
-        syntax_errors = self.code_formatter.check_syntax(code)
-        if syntax_errors:
-            QMessageBox.warning(
-                self,
-                "语法错误",
-                "\n".join(f"第{e['line']}行: {e['message']}" for e in syntax_errors),
-            )
-            return
-
-        # 代码风格检查
-        style_issues = self.code_formatter.lint_code(code)
-        if style_issues:
-            issues_text = "\n".join(
-                f"第{i['line']}行: [{i['type']}] {i['message']}" for i in style_issues
+    def _on_start_automation(self):
+        """开始自动化"""
+        try:
+            if not self.current_window:
+                QMessageBox.warning(self, "警告", "请先选择窗口")
+                return
+                
+            # 创建自动化动作
+            actions = [
+                Action(
+                    name="等待游戏加载",
+                    type="wait",
+                    params={"duration": 2.0}
+                ),
+                Action(
+                    name="点击开始按钮",
+                    type="click",
+                    params={"x": 100, "y": 100}
+                ),
+                Action(
+                    name="检查游戏开始",
+                    type="condition",
+                    params={"state": "game_started"}
+                )
+            ]
+            
+            # 添加动作
+            self.auto_controller.clear_actions()
+            for action in actions:
+                self.auto_controller.add_action(action)
+                
+            # 开始自动化
+            if self.auto_controller.start():
+                self.control_panel.set_automation_running(True)
+                self.is_automation_running = True
+                
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.AUTO_CONTROL_ERROR,
+                "开始自动化失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._on_start_automation"
+                )
             )
 
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Icon.Warning)
-            msg.setWindowTitle("代码风格问题")
-            msg.setText(f"发现{len(style_issues)}个代码风格问题:")
-            msg.setDetailedText(issues_text)
-            msg.exec()
+    def _on_stop_automation(self):
+        """停止自动化"""
+        self.auto_controller.stop()
+        self.control_panel.set_automation_running(False)
+        self.is_automation_running = False
+
+    def _on_new_config(self):
+        """新建配置"""
+        # TODO: 实现新建配置
+        pass
+
+    def _on_open_config(self):
+        """打开配置"""
+        # TODO: 实现打开配置
+        pass
+
+    def _on_save_config(self):
+        """保存配置"""
+        # TODO: 实现保存配置
+        pass
+
+    def _on_add_state_template(self):
+        """添加状态模板"""
+        # TODO: 实现添加状态模板
+        pass
+
+    def _on_edit_state_template(self):
+        """编辑状态模板"""
+        # TODO: 实现编辑状态模板
+        pass
+
+    def _on_manage_automation(self):
+        """管理自动化处理"""
+        try:
+            # 创建自动化管理对话框
+            dialog = AutomationManagerDialog(
+                self.auto_controller,
+                self.state_recognizer,
+                self.error_handler,
+                self
+            )
+            
+            # 显示对话框
+            if dialog.exec_() == QDialog.Accepted:
+                # 更新自动化状态
+                if self.is_automation_running:
+                    self._on_stop_automation()
+                    
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.UI_ERROR,
+                "管理自动化失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._on_manage_automation"
+                )
+            )
+
+    def _on_manage_templates(self):
+        """管理状态模板处理"""
+        try:
+            # 创建模板管理对话框
+            dialog = TemplateManagerDialog(self.state_recognizer, self.error_handler, self)
+            
+            # 显示对话框
+            if dialog.exec_() == QDialog.Accepted:
+                # 更新状态显示
+                if self.current_state:
+                    self._update_state_display(self.current_state)
+                    
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.UI_ERROR,
+                "管理状态模板失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._on_manage_templates"
+                )
+            )
+
+    def _create_project_browser(self) -> QTreeWidget:
+        """创建项目浏览器
+        
+        Returns:
+            QTreeWidget: 项目浏览器
+        """
+        tree = QTreeWidget()
+        tree.setHeaderLabels(["项目文件"])
+        tree.setColumnCount(1)
+        return tree
+
+    def _init_services(self):
+        """初始化服务"""
+        try:
+            # 窗口服务
+            self.window_manager = WindowManager(self.error_handler)
+            self.window_capture = WindowCapture(self.error_handler)
+            
+            # 视觉服务
+            self.image_processor = ImageProcessor(self.error_handler)
+            self.template_matcher = TemplateMatcher(self.error_handler)
+            self.state_recognizer = StateRecognizer(self.error_handler)
+            
+            # 自动化服务
+            self.auto_controller = AutoController(self.error_handler)
+            
+            # 监控服务
+            self.performance_monitor = PerformanceMonitor(self.error_handler)
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.INIT_ERROR,
+                "初始化服务失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._init_services"
+                )
+            )
+            
+    def _load_config(self):
+        """加载配置"""
+        try:
+            # 创建配置目录
+            os.makedirs(self.config_dir, exist_ok=True)
+            
+            # 加载配置文件
+            config_path = os.path.join(self.config_dir, self.config_file)
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    
+                # 系统配置
+                if "system" in config:
+                    system = config["system"]
+                    if "capture" in system:
+                        capture = system["capture"]
+                        self.capture_interval = capture.get("interval", 100)
+                        self.capture_quality = capture.get("quality", 80)
+                        
+                    if "performance" in system:
+                        performance = system["performance"]
+                        self.monitor_interval = performance.get("interval", 1000)
+                        self.max_history_size = performance.get("max_history", 1000)
+                        self.performance_monitor.set_max_history_size(self.max_history_size)
+                        
+                # 游戏配置
+                if "game" in config:
+                    game = config["game"]
+                    if "window" in game:
+                        window = game["window"]
+                        self.window_title = window.get("title", "")
+                        self.window_class = window.get("class", "")
+                        
+                    if "state" in game:
+                        state = game["state"]
+                        self.state_threshold = state.get("threshold", 80)
+                        self.auto_save_state = state.get("auto_save", False)
+                        
+                # 自动化配置
+                if "automation" in config:
+                    auto = config["automation"]
+                    if "action" in auto:
+                        action = auto["action"]
+                        self.default_timeout = action.get("timeout", 5)
+                        self.default_retry = action.get("retry", 3)
+                        
+                    if "debug" in auto:
+                        debug = auto["debug"]
+                        self.save_debug_image = debug.get("save_image", False)
+                        self.debug_dir = debug.get("dir", "debug")
+                        
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.CONFIG_ERROR,
+                "加载配置失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._load_config"
+                )
+            )
+            
+    def _on_manage_config(self):
+        """配置管理处理"""
+        try:
+            dialog = ConfigManagerDialog(self.error_handler, self)
+            if dialog.exec_() == QDialog.Accepted:
+                self._load_config()
+                self._update_timers()
+                
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.UI_ERROR,
+                "配置管理失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._on_manage_config"
+                )
+            )
+            
+    def _update_timers(self):
+        """更新定时器"""
+        try:
+            # 更新捕获定时器
+            if hasattr(self, "capture_timer"):
+                self.capture_timer.setInterval(self.capture_interval)
+                
+            # 更新监控定时器
+            if hasattr(self, "monitor_timer"):
+                self.monitor_timer.setInterval(self.monitor_interval)
+                
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.TIMER_ERROR,
+                "更新定时器失败",
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="MainWindow._update_timers"
+                )
+            )
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())

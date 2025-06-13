@@ -5,81 +5,238 @@ import numpy as np
 import time
 from .game_analyzer import GameAnalyzer
 from .logger import GameLogger
+from src.common.error_types import ErrorCode, StateError, ErrorContext
+import json
+import os
 
 class GameState:
-    """游戏状态服务，负责追踪和维护游戏状态"""
+    """游戏状态管理服务"""
     
-    def __init__(self, logger: GameLogger, game_analyzer: GameAnalyzer):
-        """初始化游戏状态服务
-        
-        Args:
-            logger: 日志服务
-            game_analyzer: 游戏分析器
-        """
+    def __init__(self, logger: GameLogger, game_analyzer, error_handler):
         self.logger = logger
         self.game_analyzer = game_analyzer
-        self.current_state = {}
+        self.error_handler = error_handler
+        self.current_state = None
         self.state_history = []
-        self.max_history_size = 100
+        self.is_initialized = False
+        self.state_file = "game_state.json"
         
-    def update_state(self, state: Dict[str, Any]):
-        """更新游戏状态
-        
-        Args:
-            state: 新的游戏状态
-        """
-        if not state:
-            return
+    def initialize(self) -> bool:
+        """初始化状态管理器"""
+        try:
+            # 加载保存的状态
+            if os.path.exists(self.state_file):
+                try:
+                    with open(self.state_file, 'r', encoding='utf-8') as f:
+                        saved_state = json.load(f)
+                        self.current_state = saved_state.get('current_state')
+                        self.state_history = saved_state.get('state_history', [])
+                except Exception as e:
+                    self.error_handler.handle_error(
+                        StateError(
+                            ErrorCode.STATE_LOAD_FAILED,
+                            "加载保存的状态失败",
+                            ErrorContext(
+                                source="GameState.initialize",
+                                details=str(e)
+                            )
+                        )
+                    )
             
-        # 添加时间戳
-        if 'timestamp' not in state:
-            state['timestamp'] = time.time()
+            self.is_initialized = True
+            return True
             
-        # 更新当前状态
-        self.current_state = state
-        
-        # 添加到历史记录
-        self.state_history.append(state)
-        
-        # 保持历史记录大小
-        if len(self.state_history) > self.max_history_size:
-            self.state_history.pop(0)
+        except Exception as e:
+            self.error_handler.handle_error(
+                StateError(
+                    ErrorCode.STATE_INIT_FAILED,
+                    "状态管理器初始化失败",
+                    ErrorContext(
+                        source="GameState.initialize",
+                        details=str(e)
+                    )
+                )
+            )
+            return False
             
-        self.logger.debug(f"游戏状态已更新: {state}")
-        
-    def get_current_state(self) -> Dict[str, Any]:
-        """获取当前游戏状态
-        
-        Returns:
-            当前游戏状态
-        """
-        return self.current_state
-        
+    def get_current_state(self) -> Optional[Dict[str, Any]]:
+        """获取当前状态"""
+        try:
+            if not self.is_initialized:
+                self.error_handler.handle_error(
+                    StateError(
+                        ErrorCode.STATE_NOT_INITIALIZED,
+                        "状态管理器未初始化",
+                        ErrorContext(
+                            source="GameState.get_current_state",
+                            details="is_initialized is False"
+                        )
+                    )
+                )
+                return None
+                
+            return self.current_state
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                StateError(
+                    ErrorCode.STATE_GET_FAILED,
+                    "获取当前状态失败",
+                    ErrorContext(
+                        source="GameState.get_current_state",
+                        details=str(e)
+                    )
+                )
+            )
+            return None
+            
+    def update_state(self, new_state: Dict[str, Any]) -> bool:
+        """更新状态"""
+        try:
+            if not self.is_initialized:
+                self.error_handler.handle_error(
+                    StateError(
+                        ErrorCode.STATE_NOT_INITIALIZED,
+                        "状态管理器未初始化",
+                        ErrorContext(
+                            source="GameState.update_state",
+                            details="is_initialized is False"
+                        )
+                    )
+                )
+                return False
+                
+            # 添加时间戳
+            new_state['timestamp'] = time.time()
+            
+            # 更新状态历史
+            if self.current_state:
+                self.state_history.append(self.current_state)
+                
+            # 限制历史记录长度
+            if len(self.state_history) > 100:
+                self.state_history = self.state_history[-100:]
+                
+            # 更新当前状态
+            self.current_state = new_state
+            
+            # 保存状态
+            self._save_state()
+            
+            return True
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                StateError(
+                    ErrorCode.STATE_UPDATE_FAILED,
+                    "更新状态失败",
+                    ErrorContext(
+                        source="GameState.update_state",
+                        details=str(e)
+                    )
+                )
+            )
+            return False
+            
+    def reset_state(self) -> bool:
+        """重置状态"""
+        try:
+            if not self.is_initialized:
+                self.error_handler.handle_error(
+                    StateError(
+                        ErrorCode.STATE_NOT_INITIALIZED,
+                        "状态管理器未初始化",
+                        ErrorContext(
+                            source="GameState.reset_state",
+                            details="is_initialized is False"
+                        )
+                    )
+                )
+                return False
+                
+            self.current_state = None
+            self.state_history = []
+            
+            # 保存状态
+            self._save_state()
+            
+            return True
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                StateError(
+                    ErrorCode.STATE_RESET_FAILED,
+                    "重置状态失败",
+                    ErrorContext(
+                        source="GameState.reset_state",
+                        details=str(e)
+                    )
+                )
+            )
+            return False
+            
     def get_state_history(self) -> List[Dict[str, Any]]:
-        """获取游戏状态历史
-        
-        Returns:
-            游戏状态历史列表
-        """
-        return self.state_history
-        
-    def clear_history(self):
-        """清除状态历史"""
-        self.state_history = []
-        
-    def find_state_in_history(self, condition) -> Optional[Dict[str, Any]]:
-        """在历史记录中查找满足条件的状态
-        
-        Args:
-            condition: 条件函数，接受状态作为参数，返回布尔值
+        """获取状态历史"""
+        try:
+            if not self.is_initialized:
+                self.error_handler.handle_error(
+                    StateError(
+                        ErrorCode.STATE_NOT_INITIALIZED,
+                        "状态管理器未初始化",
+                        ErrorContext(
+                            source="GameState.get_state_history",
+                            details="is_initialized is False"
+                        )
+                    )
+                )
+                return []
+                
+            return self.state_history
             
-        Returns:
-            满足条件的最新状态，如果没有则返回None
-        """
-        for state in reversed(self.state_history):
-            if condition(state):
-                return state
-        return None
+        except Exception as e:
+            self.error_handler.handle_error(
+                StateError(
+                    ErrorCode.STATE_HISTORY_GET_FAILED,
+                    "获取状态历史失败",
+                    ErrorContext(
+                        source="GameState.get_state_history",
+                        details=str(e)
+                    )
+                )
+            )
+            return []
+            
+    def _save_state(self) -> bool:
+        """保存状态到文件"""
+        try:
+            state_data = {
+                'current_state': self.current_state,
+                'state_history': self.state_history
+            }
+            
+            with open(self.state_file, 'w', encoding='utf-8') as f:
+                json.dump(state_data, f, ensure_ascii=False, indent=2)
+                
+            return True
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                StateError(
+                    ErrorCode.STATE_SAVE_FAILED,
+                    "保存状态失败",
+                    ErrorContext(
+                        source="GameState._save_state",
+                        details=str(e)
+                    )
+                )
+            )
+            return False
+            
+    def cleanup(self) -> None:
+        """清理资源"""
+        self.current_state = None
+        self.state_history = []
+        self.is_initialized = False
 
 class StateManager:
     """状态管理器"""
