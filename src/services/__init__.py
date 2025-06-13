@@ -12,11 +12,27 @@ except ImportError:
     GameLogger = None
 
 try:
-    from .exceptions import GameAutomationError, WindowNotFoundError
-    __all__.extend(['GameAutomationError', 'WindowNotFoundError'])
+    from .exceptions import (
+        GameAutomationError, 
+        WindowNotFoundError, 
+        WindowAccessError,
+        ImageProcessingError,
+        ActionSimulationError,
+        GameStateError,
+        TemplateCollectionError,
+        ModelTrainingError,
+        ConfigurationError,
+        ServiceInitializationError,
+        ServiceUnavailableError
+    )
+    __all__.extend([
+        'GameAutomationError', 'WindowNotFoundError', 'WindowAccessError',
+        'ImageProcessingError', 'ActionSimulationError', 'GameStateError',
+        'TemplateCollectionError', 'ModelTrainingError', 'ConfigurationError',
+        'ServiceInitializationError', 'ServiceUnavailableError'
+    ])
 except ImportError:
-    GameAutomationError = None
-    WindowNotFoundError = None
+    pass
 
 # 需要外部依赖的服务
 try:
@@ -44,19 +60,20 @@ except ImportError:
     GameAnalyzer = None
 
 try:
-    from .game_state import GameState
-    __all__.append('GameState')
+    from .template_collector import TemplateCollector
+    __all__.append('TemplateCollector')
 except ImportError:
-    GameState = None
+    TemplateCollector = None
+
+# 新增的服务
+try:
+    from .resource_manager import ResourceManager
+    __all__.append('ResourceManager')
+except ImportError:
+    ResourceManager = None
 
 try:
-    from .auto_operator import AutoOperator
-    __all__.append('AutoOperator')
+    from .capture_engines import CaptureEngines
+    __all__.append('CaptureEngines')
 except ImportError:
-    AutoOperator = None
-
-try:
-    from .config_manager import ConfigManager
-    __all__.append('ConfigManager')
-except ImportError:
-    ConfigManager = None 
+    CaptureEngines = None 
