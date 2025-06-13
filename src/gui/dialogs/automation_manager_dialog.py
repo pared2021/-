@@ -9,7 +9,8 @@ from PyQt5.QtCore import Qt, pyqtSignal
 
 from services.automation.auto_controller import AutoController, Action
 from services.vision.state_recognizer import StateRecognizer
-from core.error_handler import ErrorHandler, ErrorCode, ErrorContext
+from src.services.error_handler import ErrorHandler
+from src.common.error_types import ErrorCode, ErrorContext
 
 class AutomationManagerDialog(QDialog):
     """自动化管理对话框"""

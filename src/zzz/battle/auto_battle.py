@@ -5,7 +5,7 @@ import os
 import json
 from typing import Dict, List, Optional
 from dataclasses import dataclass
-from ..config import ConfigManager
+from src.services.config import Config as ConfigManager
 from ..utils.cmd_recorder import CommandRecorder
 
 

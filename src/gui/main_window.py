@@ -37,7 +37,8 @@ from pathlib import Path
 
 from core.resource_manager import ResourceManager
 from core.task_system import TaskScheduler, Task, TaskPriority, TaskStatus
-from core.error_handler import ErrorHandler, ErrorCode, ErrorContext
+from src.services.error_handler import ErrorHandler
+from src.common.error_types import ErrorCode, ErrorContext
 from core.game_adapter import GameAdapter
 from macro.macro_recorder import MacroRecorder
 from macro.macro_player import MacroPlayer

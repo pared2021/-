@@ -6,7 +6,8 @@ from typing import Dict, List, Optional
 import time
 import psutil
 from dataclasses import dataclass
-from core.error_handler import ErrorHandler, ErrorCode, ErrorContext
+from src.services.error_handler import ErrorHandler
+from src.common.error_types import ErrorCode, ErrorContext
 
 @dataclass
 class PerformanceMetrics:

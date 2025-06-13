@@ -17,7 +17,7 @@ from enum import Enum, auto
 
 from core.game_adapter import GameAdapter, GameWindow, GameState
 from core.game_analyzer import GameAnalyzer
-from core.error_handler import ErrorLevel
+from src.services.error_handler import ErrorHandler
 from core.task_system import Task, TaskPriority
 
 

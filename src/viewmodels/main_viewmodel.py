@@ -9,7 +9,7 @@ from src.services.image_processor import ImageProcessor
 from src.services.action_simulator import ActionSimulator
 from src.services.game_state import GameState
 from src.services.auto_operator import AutoOperator
-from src.services.config_manager import ConfigManager
+from src.services.config import Config as ConfigManager
 from src.services.config import config
 import os
 from typing import Optional

@@ -5,7 +5,7 @@ import os
 import json
 from typing import Dict, Optional
 import onnxruntime as ort
-from ..config import ConfigManager
+from src.services.config import Config as ConfigManager
 
 
 class BaseScheduler:

@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 import os
+import json
+import logging
 
 # 可选的torch依赖
 try:
-import torch
+    import torch
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -165,6 +167,11 @@ class Config:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     frame: FrameConfig = field(default_factory=FrameConfig)
     game_state: GameStateConfig = field(default_factory=GameStateConfig)
+    
+    # 兼容旧ConfigManager的字段
+    _legacy_config: Dict[str, Any] = field(default_factory=dict)
+    _config_file: str = "config.json"
+    _logger: logging.Logger = field(default_factory=lambda: logging.getLogger("ConfigManager"))
 
     def __post_init__(self):
         """初始化后处理"""
@@ -181,10 +188,13 @@ class Config:
         for directory in directories:
             if directory:  # 确保目录路径不为空
                 try:
-                os.makedirs(directory, exist_ok=True)
-                print(f"确保目录存在: {directory}")
+                    os.makedirs(directory, exist_ok=True)
+                    print(f"确保目录存在: {directory}")
                 except Exception as e:
                     print(f"创建目录失败 {directory}: {e}")
+        
+        # 初始化兼容配置
+        self._load_legacy_config()
 
     def get_data_dir(self) -> str:
         """
@@ -212,6 +222,150 @@ class Config:
             bool: torch是否可用
         """
         return TORCH_AVAILABLE
+    
+    # === 兼容旧ConfigManager的方法 ===
+    
+    def get_hotkeys(self) -> Dict[str, str]:
+        """获取热键配置 - 兼容旧ConfigManager"""
+        default_hotkeys = {
+            "start_record": "F9",
+            "stop_record": "F10", 
+            "start_playback": "F11",
+            "stop_playback": "F12",
+        }
+        return self._legacy_config.get("hotkeys", default_hotkeys)
+    
+    def get_playback_options(self) -> Dict[str, Any]:
+        """获取播放选项 - 兼容旧ConfigManager"""
+        default_options = {
+            "speed": 1.0, 
+            "loop_count": 1, 
+            "random_delay": 0.0
+        }
+        return self._legacy_config.get("playback_options", default_options)
+    
+    def get_config(self, key: str, default=None):
+        """兼容旧版get_config接口"""
+        # 首先检查新配置结构
+        if hasattr(self, key):
+            return getattr(self, key)
+        
+        # 检查legacy配置
+        if key in self._legacy_config:
+            return self._legacy_config[key]
+        
+        # 检查一些常用的映射
+        config_mapping = {
+            "window_title": self.ui.window_title,
+            "window_size": [self.ui.window_width, self.ui.window_height],
+            "language": "zh_CN",
+            "theme": self.ui.theme,
+        }
+        
+        if key in config_mapping:
+            return config_mapping[key]
+        
+        return default
+    
+    def set_config(self, key: str, value):
+        """兼容旧版set_config接口"""
+        # 更新legacy配置
+        self._legacy_config[key] = value
+        
+        # 尝试映射到新配置结构
+        if key == "window_title":
+            self.ui.window_title = value
+        elif key == "theme":
+            self.ui.theme = value
+        elif key == "window_size" and isinstance(value, list) and len(value) >= 2:
+            self.ui.window_width = value[0]
+            self.ui.window_height = value[1]
+        
+        # 保存配置
+        self._save_legacy_config()
+    
+    def delete_config(self, key: str):
+        """删除配置项 - 兼容旧ConfigManager"""
+        if key in self._legacy_config:
+            del self._legacy_config[key]
+            self._save_legacy_config()
+    
+    def clear_config(self):
+        """清空所有配置 - 兼容旧ConfigManager"""
+        self._legacy_config.clear()
+        self._save_legacy_config()
+    
+    def _load_legacy_config(self):
+        """加载兼容配置"""
+        try:
+            if os.path.exists(self._config_file):
+                with open(self._config_file, "r", encoding="utf-8") as f:
+                    self._legacy_config = json.load(f)
+            else:
+                self._legacy_config = self._create_default_legacy_config()
+                self._save_legacy_config()
+        except Exception as e:
+            self._logger.error("加载配置文件失败: %s", e)
+            self._legacy_config = self._create_default_legacy_config()
+    
+    def _save_legacy_config(self):
+        """保存兼容配置"""
+        try:
+            with open(self._config_file, "w", encoding="utf-8") as f:
+                json.dump(self._legacy_config, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            self._logger.error("保存配置文件失败: %s", e)
+    
+    def _create_default_legacy_config(self) -> Dict[str, Any]:
+        """创建默认兼容配置"""
+        return {
+            "window_title": "游戏自动操作工具",
+            "window_size": [800, 600],
+            "language": "zh_CN",
+            "theme": "default",
+            "hotkeys": {
+                "start_record": "F9",
+                "stop_record": "F10",
+                "start_playback": "F11",
+                "stop_playback": "F12",
+            },
+            "playback_options": {"speed": 1.0, "loop_count": 1, "random_delay": 0.0},
+        }
+    
+    # === 兼容多配置文件管理（来自zzz/config/config_manager.py） ===
+    
+    def load_named_config(self, name: str, config_dir: str = "config") -> Optional[Dict[str, Any]]:
+        """加载命名配置文件"""
+        # 创建配置目录
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir)
+        
+        config_path = os.path.join(config_dir, f"{name}.json")
+        if not os.path.exists(config_path):
+            return None
+
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data
+        except Exception as e:
+            print(f"加载配置失败: {str(e)}")
+            return None
+
+    def save_named_config(self, name: str, data: Dict[str, Any], config_dir: str = "config") -> bool:
+        """保存命名配置文件"""
+        # 创建配置目录
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir)
+            
+        config_path = os.path.join(config_dir, f"{name}.json")
+        try:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+                return True
+        except Exception as e:
+            print(f"保存配置失败: {str(e)}")
+            return False
 
 # 导出Config类
 __all__ = ['Config']

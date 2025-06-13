@@ -19,7 +19,7 @@ import win32ui
 
 from core.game_adapter import GameAdapter, GameWindow, GameState
 from core.game_analyzer import GameAnalyzer
-from core.error_handler import ErrorHandler
+from src.services.error_handler import ErrorHandler
 from core.task_system import TaskSystem, Task, TaskPriority
 
 

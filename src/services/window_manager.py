@@ -834,3 +834,243 @@ class GameWindowManager(QObject):
                 self.screenshot = screenshot
                 self.notify_screenshot_updated(screenshot)
             time.sleep(1.0 / 30)  # 限制帧率为30fps 
+
+    # === 兼容zzz/utils/window_manager.py的静态方法 ===
+    
+    @staticmethod
+    def find_window_by_title(title: str) -> Optional[int]:
+        """查找指定标题的窗口 - 兼容zzz/utils版本
+        
+        Args:
+            title: 窗口标题
+            
+        Returns:
+            Optional[int]: 窗口句柄
+        """
+        return win32gui.FindWindow(None, title)
+    
+    @staticmethod
+    def get_window_rect_static(hwnd: int) -> Tuple[int, int, int, int]:
+        """获取窗口位置和大小 - 兼容zzz/utils版本
+        
+        Args:
+            hwnd: 窗口句柄
+            
+        Returns:
+            Tuple[int, int, int, int]: (左, 上, 右, 下)
+        """
+        return win32gui.GetWindowRect(hwnd)
+    
+    @staticmethod
+    def activate_window_static(hwnd: int):
+        """激活窗口 - 兼容zzz/utils版本
+        
+        Args:
+            hwnd: 窗口句柄
+        """
+        if win32gui.IsIconic(hwnd):  # 如果窗口最小化
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+        win32gui.SetForegroundWindow(hwnd)
+    
+    @staticmethod
+    def get_window_state_info(hwnd: int) -> Dict:
+        """获取窗口状态 - 兼容zzz/utils版本
+        
+        Args:
+            hwnd: 窗口句柄
+            
+        Returns:
+            Dict: 窗口状态信息
+        """
+        rect = win32gui.GetWindowRect(hwnd)
+        return {
+            "position": {"x": rect[0], "y": rect[1]},
+            "size": {"width": rect[2] - rect[0], "height": rect[3] - rect[1]},
+            "active": hwnd == win32gui.GetForegroundWindow(),
+            "minimized": win32gui.IsIconic(hwnd),
+            "maximized": win32gui.IsZoomed(hwnd),
+        }
+    
+    def capture_window_legacy(self, hwnd: int) -> Optional[np.ndarray]:
+        """捕获窗口截图 - 兼容zzz/utils版本
+        
+        Args:
+            hwnd: 窗口句柄
+            
+        Returns:
+            Optional[np.ndarray]: 窗口截图数据
+        """
+        try:
+            # 获取窗口大小
+            left, top, right, bottom = self.get_window_rect_static(hwnd)
+            width = right - left
+            height = bottom - top
+
+            # 创建设备上下文
+            hwnd_dc = win32gui.GetWindowDC(hwnd)
+            mfc_dc = win32ui.CreateDCFromHandle(hwnd_dc)
+            save_dc = mfc_dc.CreateCompatibleDC()
+
+            # 创建位图对象
+            save_bitmap = win32ui.CreateBitmap()
+            save_bitmap.CreateCompatibleBitmap(mfc_dc, width, height)
+            save_dc.SelectObject(save_bitmap)
+
+            # 复制屏幕到位图
+            save_dc.BitBlt((0, 0), (width, height), mfc_dc, (0, 0), win32con.SRCCOPY)
+
+            # 获取位图信息
+            bmp_info = save_bitmap.GetInfo()
+            bmp_str = save_bitmap.GetBitmapBits(True)
+
+            # 转换为numpy数组
+            img = np.frombuffer(bmp_str, dtype="uint8")
+            img.shape = (height, width, 4)  # RGBA格式
+
+            # 清理资源
+            win32gui.DeleteObject(save_bitmap.GetHandle())
+            save_dc.DeleteDC()
+            mfc_dc.DeleteDC()
+            win32gui.ReleaseDC(hwnd, hwnd_dc)
+
+            return img
+
+        except Exception as e:
+            self.logger.error(f"截图失败: {e}")
+            return None
+            
+    def find_windows_by_pattern(self, title_pattern: Optional[str] = None, 
+                               class_pattern: Optional[str] = None) -> List[WindowInfo]:
+        """查找窗口 - 兼容window子目录版本
+        
+        Args:
+            title_pattern: 标题匹配模式
+            class_pattern: 类名匹配模式
+            
+        Returns:
+            List[WindowInfo]: 窗口列表
+        """
+        try:
+            windows = []
+            
+            def callback(hwnd, _):
+                if not win32gui.IsWindowVisible(hwnd):
+                    return True
+                    
+                title = win32gui.GetWindowText(hwnd)
+                class_name = win32gui.GetClassName(hwnd)
+                
+                # 检查标题和类名是否匹配
+                if title_pattern and title_pattern not in title:
+                    return True
+                if class_pattern and class_pattern not in class_name:
+                    return True
+                    
+                # 获取窗口信息
+                rect = win32gui.GetWindowRect(hwnd)
+                is_visible = win32gui.IsWindowVisible(hwnd)
+                is_enabled = win32gui.IsWindowEnabled(hwnd)
+                
+                window_info = WindowInfo(
+                    hwnd=hwnd,
+                    title=title,
+                    class_name=class_name,
+                    rect=rect,
+                    is_visible=is_visible,
+                    is_enabled=is_enabled
+                )
+                
+                windows.append(window_info)
+                return True
+                
+            win32gui.EnumWindows(callback, None)
+            return windows
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.WINDOW_ERROR,
+                WindowError("查找窗口失败"),
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="WindowManager.find_windows_by_pattern"
+                )
+            )
+            return []
+    
+    def set_window_pos_static(self, hwnd: int, x: int, y: int, 
+                             width: int, height: int) -> bool:
+        """设置窗口位置和大小 - 兼容window子目录版本
+        
+        Args:
+            hwnd: 窗口句柄
+            x: 左上角x坐标
+            y: 左上角y坐标
+            width: 宽度
+            height: 高度
+            
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            flags = win32con.SWP_SHOWWINDOW
+            return win32gui.SetWindowPos(hwnd, 0, x, y, width, height, flags)
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.WINDOW_ERROR,
+                WindowError("设置窗口位置失败"),
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="WindowManager.set_window_pos_static",
+                    window_handle=hwnd
+                )
+            )
+            return False
+    
+    def set_window_foreground_static(self, hwnd: int) -> bool:
+        """将窗口置于前台 - 兼容window子目录版本
+        
+        Args:
+            hwnd: 窗口句柄
+            
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            return win32gui.SetForegroundWindow(hwnd)
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.WINDOW_ERROR,
+                WindowError("设置窗口前台失败"),
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="WindowManager.set_window_foreground_static",
+                    window_handle=hwnd
+                )
+            )
+            return False
+    
+    def is_window_valid_static(self, hwnd: int) -> bool:
+        """检查窗口是否有效 - 兼容window子目录版本
+        
+        Args:
+            hwnd: 窗口句柄
+            
+        Returns:
+            bool: 是否有效
+        """
+        try:
+            return win32gui.IsWindow(hwnd)
+            
+        except Exception as e:
+            self.error_handler.handle_error(
+                ErrorCode.WINDOW_ERROR,
+                WindowError("检查窗口有效性失败"),
+                ErrorContext(
+                    error_info=str(e),
+                    error_location="WindowManager.is_window_valid_static",
+                    window_handle=hwnd
+                )
+            )
+            return False 

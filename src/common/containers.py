@@ -6,7 +6,7 @@ from src.services.game_analyzer import GameAnalyzer
 from src.services.action_simulator import ActionSimulator
 from src.services.game_state import GameState
 from src.services.auto_operator import AutoOperator
-from src.services.config_manager import ConfigManager
+from src.services.config import Config as ConfigManager
 from src.services.error_handler import ErrorHandler
 import os
 

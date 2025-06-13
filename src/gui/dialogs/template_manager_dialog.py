@@ -9,7 +9,8 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap
 
 from services.vision.state_recognizer import StateRecognizer, GameState
-from core.error_handler import ErrorHandler, ErrorCode, ErrorContext
+from src.services.error_handler import ErrorHandler
+from src.common.error_types import ErrorCode, ErrorContext
 
 class TemplateManagerDialog(QDialog):
     """状态模板管理对话框"""

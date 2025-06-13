@@ -7,8 +7,8 @@ import json
 import threading
 from typing import Dict, List, Optional
 from ..battle import AutoBattleSystem
-from ..config import ConfigManager
-from ..utils.window_manager import WindowManager
+from src.services.config import Config as ConfigManager
+from src.services.window_manager import GameWindowManager as WindowManager
 
 
 class SyncBattleService:

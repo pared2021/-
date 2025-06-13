@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                            QMessageBox, QFileDialog)
 from PyQt5.QtCore import Qt
 
-from core.error_handler import ErrorHandler, ErrorCode, ErrorContext
+from src.services.error_handler import ErrorHandler
+from src.common.error_types import ErrorCode, ErrorContext
 
 class ConfigManagerDialog(QDialog):
     """配置管理对话框"""

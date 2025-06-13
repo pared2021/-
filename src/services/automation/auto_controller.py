@@ -5,7 +5,8 @@
 from typing import Optional, List, Dict, Callable
 import time
 from dataclasses import dataclass
-from core.error_handler import ErrorHandler, ErrorCode, ErrorContext
+from src.services.error_handler import ErrorHandler
+from src.common.error_types import ErrorCode, ErrorContext
 from ..vision.state_recognizer import GameState
 
 @dataclass

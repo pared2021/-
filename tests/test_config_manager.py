@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import mock_open, patch
 import json
-from src.config_manager import ConfigManager
+from src.services.config import Config as ConfigManager
 
 
 @pytest.fixture

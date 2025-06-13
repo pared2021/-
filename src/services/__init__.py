@@ -56,7 +56,7 @@ except ImportError:
     AutoOperator = None
 
 try:
-    from .config_manager import ConfigManager
+    from .config import Config as ConfigManager
     __all__.append('ConfigManager')
 except ImportError:
     ConfigManager = None 
