@@ -1,7 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Any
 import os
+
+# 可选的torch依赖
+try:
 import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 @dataclass
 class WindowConfig:
@@ -59,7 +65,7 @@ class DQNConfig:
     state_size: int = 100  # 状态空间维度
     action_size: int = 10  # 动作空间维度
     hidden_size: int = 128  # 隐藏层大小
-    device: str = 'cuda' if torch.cuda.is_available() else 'cpu'  # 设备
+    device: str = 'cuda' if TORCH_AVAILABLE and torch.cuda.is_available() else 'cpu'  # 设备
     # 训练参数
     memory_size: int = 10000  # 经验回放缓冲区大小
     batch_size: int = 32  # 训练批次大小
@@ -166,7 +172,7 @@ class Config:
         directories = [
             self.template.output_dir,  # 模板目录
             self.logging.log_dir,      # 日志目录
-            os.path.dirname(self.yolo.model_path),  # YOLO模型目录
+            os.path.dirname(self.yolo.model_path) if self.yolo.model_path else None,  # YOLO模型目录
             'models',                  # 模型保存目录
             'data',                    # 数据目录
             'screenshots'              # 截图目录
@@ -174,8 +180,38 @@ class Config:
         
         for directory in directories:
             if directory:  # 确保目录路径不为空
+                try:
                 os.makedirs(directory, exist_ok=True)
                 print(f"确保目录存在: {directory}")
+                except Exception as e:
+                    print(f"创建目录失败 {directory}: {e}")
+
+    def get_data_dir(self) -> str:
+        """
+        获取数据目录路径
+        
+        Returns:
+            str: 数据目录路径
+        """
+        return 'data'
+    
+    def get_game_name(self) -> str:
+        """
+        获取当前游戏名称
+        
+        Returns:
+            str: 游戏名称，默认为"default"
+        """
+        return "default"  # 可以从配置文件或窗口标题中获取
+    
+    def is_torch_available(self) -> bool:
+        """
+        检查torch是否可用
+        
+        Returns:
+            bool: torch是否可用
+        """
+        return TORCH_AVAILABLE
 
 # 导出Config类
 __all__ = ['Config']
