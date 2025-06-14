@@ -242,20 +242,20 @@ game_analyzer = container.get('GameAnalyzer')
 window_manager = container.get('GameWindowManager')
 ```
 
-### 错误恢复机制
+### 统一错误处理机制
 ```python
-from src.common.recovery import RecoveryManager
+from src.services.error_handler import ErrorHandler
 
-# 自动错误恢复
-recovery = RecoveryManager(logger)
-recovery.add_default_handlers()
+# 统一错误处理（已整合恢复功能）
+error_handler = ErrorHandler(logger)
+error_handler.add_default_handlers()
 
-# 智能处理异常
+# 智能处理异常和自动恢复
 try:
     # 可能出错的操作
     risky_operation()
 except Exception as e:
-    recovery.handle_error(e)  # 自动恢复
+    error_handler.handle_error(e)  # 自动处理和恢复
 ```
 
 ## 🔧 系统要求

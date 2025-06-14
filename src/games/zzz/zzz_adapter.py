@@ -14,16 +14,13 @@ import win32api
 from core.game_adapter import GameAdapter, GameWindow, GameState
 from core.game_analyzer import GameAnalyzer
 
+# 使用统一的Action体系
+from src.common.action_system import (
+    ActionType, GameSpecificAction, ActionSequence, ActionFactory, BaseAction
+)
 
-@dataclass
-class ZZZAction:
-    """绝区零动作定义"""
-
-    type: str
-    key: str
-    hold_time: float = 0.0
-    post_delay: float = 0.01
-    repeat: int = 1
+# 向后兼容性别名
+ZZZAction = GameSpecificAction
 
 
 class ZZZGameAdapter(GameAdapter):
@@ -97,11 +94,47 @@ class ZZZGameAdapter(GameAdapter):
     def get_action_template(self) -> Dict:
         """获取动作模板"""
         return {
-            "basic_attack": ZZZAction(type="key", key="attack", post_delay=0.1),
-            "dodge": ZZZAction(type="key", key="dodge", post_delay=0.2),
-            "skill": ZZZAction(type="key", key="skill", hold_time=0.5, post_delay=0.3),
-            "switch_character": ZZZAction(type="key", key="switch", post_delay=0.5),
-            "ultimate": ZZZAction(type="key", key="ultimate", post_delay=1.0),
+            "basic_attack": ZZZAction(
+                name="basic_attack",
+                type=ActionType.ZZZ_ACTION,
+                game_name="zzz",
+                key="attack",
+                post_delay=0.1,
+                params={"action_type": "key"}
+            ),
+            "dodge": ZZZAction(
+                name="dodge",
+                type=ActionType.ZZZ_ACTION,
+                game_name="zzz",
+                key="dodge",
+                post_delay=0.2,
+                params={"action_type": "key"}
+            ),
+            "skill": ZZZAction(
+                name="skill",
+                type=ActionType.ZZZ_ACTION,
+                game_name="zzz",
+                key="skill",
+                hold_time=0.5,
+                post_delay=0.3,
+                params={"action_type": "key"}
+            ),
+            "switch_character": ZZZAction(
+                name="switch_character",
+                type=ActionType.ZZZ_ACTION,
+                game_name="zzz",
+                key="switch",
+                post_delay=0.5,
+                params={"action_type": "key"}
+            ),
+            "ultimate": ZZZAction(
+                name="ultimate",
+                type=ActionType.ZZZ_ACTION,
+                game_name="zzz",
+                key="ultimate",
+                post_delay=1.0,
+                params={"action_type": "key"}
+            ),
         }
 
     def execute_action(self, window: GameWindow, action: str, params: Dict) -> bool:
@@ -114,7 +147,13 @@ class ZZZGameAdapter(GameAdapter):
                 return False
 
             # 更新动作参数
-            action_params = template.__dict__.copy()
+            action_params = {
+                "key": template.key,
+                "hold_time": template.hold_time,
+                "post_delay": template.post_delay,
+                "repeat": getattr(template, 'repeat', 1),
+                "action_type": template.params.get("action_type", "key")
+            }
             action_params.update(params)
 
             # 激活窗口
@@ -122,10 +161,10 @@ class ZZZGameAdapter(GameAdapter):
                 return False
 
             # 执行动作
-            if template.type == "key":
+            if action_params["action_type"] == "key":
                 return self._execute_key_action(action_params)
             else:
-                self.logger.error(f"不支持的动作类型: {template.type}")
+                self.logger.error(f"不支持的动作类型: {action_params['action_type']}")
                 return False
 
         except Exception as e:

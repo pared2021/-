@@ -11,6 +11,11 @@ import logging
 
 from .macro_recorder import MacroEvent, MacroEventType
 
+# 引入统一的Action体系（用于创建宏动作）
+from src.common.action_system import (
+    ActionType, MacroAction, ActionSequence, ActionFactory, BaseAction
+)
+
 
 class EditOperation(Enum):
     """编辑操作类型"""
@@ -23,7 +28,7 @@ class EditOperation(Enum):
 
 @dataclass
 class EditAction:
-    """编辑动作"""
+    """编辑动作 - 编辑器内部操作记录"""
 
     operation: EditOperation
     index: int
@@ -308,3 +313,60 @@ class MacroEditor:
                 stats["mouse_counts"][button] = stats["mouse_counts"].get(button, 0) + 1
 
         return stats
+    
+    # === 统一Action体系支持 ===
+    
+    def create_macro_action(self, name: str, operation: str, **kwargs) -> MacroAction:
+        """创建宏动作 - 使用统一Action体系
+        
+        Args:
+            name: 动作名称
+            operation: 操作类型
+            **kwargs: 其他参数
+            
+        Returns:
+            MacroAction: 创建的宏动作
+        """
+        return MacroAction(
+            name=name,
+            type=ActionType.MACRO,
+            operation=operation,
+            target=kwargs.get("target"),
+            old_value=kwargs.get("old_value"),
+            new_value=kwargs.get("new_value"),
+            params=kwargs
+        )
+    
+    def events_to_macro_actions(self) -> List[MacroAction]:
+        """将事件列表转换为宏动作列表
+        
+        Returns:
+            List[MacroAction]: 宏动作列表
+        """
+        actions = []
+        for i, event in enumerate(self.events):
+            action = MacroAction(
+                name=f"macro_event_{i}",
+                type=ActionType.MACRO,
+                operation="execute_event",
+                params={
+                    "event_type": event.type.name,
+                    "event_data": event.data,
+                    "timestamp": event.timestamp
+                }
+            )
+            actions.append(action)
+        return actions
+    
+    def create_action_sequence(self, name: str = "MacroSequence") -> ActionSequence:
+        """创建动作序列
+        
+        Args:
+            name: 序列名称
+            
+        Returns:
+            ActionSequence: 动作序列
+        """
+        sequence = ActionSequence(name)
+        sequence.add_actions(self.events_to_macro_actions())
+        return sequence

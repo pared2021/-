@@ -8,16 +8,13 @@ from dataclasses import dataclass
 from src.services.config import Config as ConfigManager
 from ..utils.cmd_recorder import CommandRecorder
 
+# 使用统一的Action体系
+from src.common.action_system import (
+    ActionType, BattleAction, ActionSequence, ActionFactory, BaseAction
+)
 
-@dataclass
-class BattleAction:
-    """战斗动作数据类"""
-
-    action_type: str
-    target: str
-    delay: float
-    conditions: List[Dict]
-    fallback: Optional[str]
+# 向后兼容性别名（如果需要旧的接口）
+# BattleAction已从common.action_system导入
 
 
 class AutoBattleSystem:
@@ -51,12 +48,19 @@ class AutoBattleSystem:
         # 解析战斗动作
         self.actions = []
         for action_data in config_data["actions"]:
+            # 创建统一的BattleAction对象
             action = BattleAction(
+                name=action_data.get("name", f"battle_{action_data['type']}"),
+                type=ActionType.BATTLE,
                 action_type=action_data["type"],
-                target=action_data["target"],
+                params={
+                    "target": action_data["target"],
+                    "conditions": action_data.get("conditions", [])
+                },
                 delay=action_data.get("delay", 0.0),
-                conditions=action_data.get("conditions", []),
                 fallback=action_data.get("fallback"),
+                priority=action_data.get("priority", 0),
+                cooldown=action_data.get("cooldown", 0.0)
             )
             self.actions.append(action)
 
@@ -108,7 +112,8 @@ class AutoBattleSystem:
             Optional[BattleAction]: 下一个动作，如果没有可执行的动作则返回None
         """
         for action in self.actions:
-            if self.check_conditions(action.conditions):
+            conditions = action.params.get("conditions", [])
+            if self.check_conditions(conditions):
                 return action
 
             if action.fallback:
@@ -129,7 +134,7 @@ class AutoBattleSystem:
         self.recorder.record_command(
             {
                 "type": action.action_type,
-                "target": action.target,
+                "target": action.params.get("target", ""),
                 "state": self.current_state.copy(),
             }
         )

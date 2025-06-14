@@ -9,6 +9,11 @@ import time
 import re
 from enum import Enum
 
+# 使用统一的Action体系
+from src.common.action_system import (
+    ActionType, AutomationAction, ActionSequence, ActionFactory, BaseAction
+)
+
 
 class ConditionType(Enum):
     EXIST = "exist"
@@ -64,14 +69,8 @@ class Condition:
             return Condition(type=ConditionType.CUSTOM, target=condition_str, params={})
 
 
-@dataclass
-class Action:
-    """动作定义"""
-
-    type: str
-    params: Dict
-    repeat: int = 1
-    delay: float = 0.0
+# 使用统一的Action体系
+# Action类已从common.action_system导入
 
 
 @dataclass
@@ -81,7 +80,7 @@ class State:
     name: str
     priority: int
     conditions: List[Condition]
-    actions: List[Action]
+    actions: List[BaseAction]  # 使用统一的Action基类
     next_states: List[str]
 
 
@@ -115,14 +114,16 @@ class StateMachine:
             actions = []
             for action in template.get("actions", []):
                 try:
-                    actions.append(
-                        Action(
-                            type=action["type"],
-                            params=action.get("params", {}),
-                            repeat=action.get("repeat", 1),
-                            delay=action.get("delay", 0.0),
-                        )
+                    # 创建统一的Action对象
+                    action_type = ActionType(action["type"]) if action["type"] in [e.value for e in ActionType] else ActionType.CLICK
+                    automation_action = AutomationAction(
+                        name=action.get("name", f"{action['type']}_action"),
+                        type=action_type,
+                        params=action.get("params", {}),
+                        retry_count=action.get("repeat", 1),
+                        delay=action.get("delay", 0.0),
                     )
+                    actions.append(automation_action)
                 except Exception as e:
                     self.logger.error(f"解析动作失败 {action}: {e}")
                     continue
@@ -233,7 +234,7 @@ class StateMachine:
 
         return False
 
-    def get_current_actions(self) -> List[Action]:
+    def get_current_actions(self) -> List[BaseAction]:
         """获取当前状态的动作列表"""
         if self.current_state:
             return self.current_state.actions

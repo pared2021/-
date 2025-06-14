@@ -13,24 +13,13 @@ from src.services.error_handler import ErrorHandler
 from src.services.window_manager import WindowManager
 from src.services.image_processor import ImageProcessor, TemplateMatchResult
 
-class ActionType:
-    """动作类型"""
-    CLICK = "click"
-    RIGHT_CLICK = "right_click" 
-    MOVE = "move"
-    KEY_PRESS = "key_press"
-    WAIT = "wait"
-    NONE = "none"
+# 使用统一的Action体系
+from src.common.action_system import (
+    ActionType, AutomationAction, ActionSequence, ActionFactory, BaseAction
+)
 
-@dataclass
-class Action:
-    """动作定义"""
-    name: str
-    type: str  # click, key, wait, condition
-    params: Dict
-    condition: Optional[Callable] = None
-    timeout: float = 5.0
-    retry_count: int = 3
+# 向后兼容性别名
+Action = AutomationAction
 
 class AutoOperator:
     """自动化操作器"""
@@ -135,13 +124,18 @@ class AutoOperator:
             bool: 是否成功
         """
         try:
-            if action.type == "click":
+            # 使用统一Action体系的执行方法
+            if hasattr(action, 'execute') and callable(action.execute):
+                return action.execute(executor=self)
+            
+            # 向后兼容性处理
+            if action.type == ActionType.CLICK:
                 return self._execute_click(action)
-            elif action.type == "key":
+            elif action.type == ActionType.KEY:
                 return self._execute_key(action)
-            elif action.type == "wait":
+            elif action.type == ActionType.WAIT:
                 return self._execute_wait(action)
-            elif action.type == "condition":
+            elif action.type == ActionType.CONDITION:
                 return self._execute_condition(action)
             else:
                 raise ValueError(f"未知的动作类型: {action.type}")
@@ -154,7 +148,7 @@ class AutoOperator:
                     error_info=str(e),
                     error_location="AutoOperator._execute_action",
                     action_name=action.name,
-                    action_type=action.type
+                    action_type=str(action.type)
                 )
             )
             return False
@@ -304,7 +298,64 @@ class AutoOperator:
     def check_window_state(self):
         """检查窗口状态"""
         if not self.window_manager:
-            self.logger.debug("窗口管理器未初始化")
             return False
             
-        return self.window_manager.is_window_active() 
+        return self.window_manager.is_window_active()
+    
+    # === 统一Action体系executor接口 ===
+    
+    def click(self, x: int, y: int, button: str = "left") -> bool:
+        """点击操作 - executor接口
+        
+        Args:
+            x: X坐标
+            y: Y坐标
+            button: 鼠标按钮
+            
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            if not self.window_manager or not hasattr(self.window_manager, 'current_window'):
+                return False
+            return self.window_manager.click_window(
+                self.window_manager.current_window.hwnd,
+                x, y, button
+            )
+        except Exception:
+            return False
+    
+    def send_key(self, key: str, hold_time: float = 0.0) -> bool:
+        """发送按键 - executor接口
+        
+        Args:
+            key: 按键
+            hold_time: 按住时间
+            
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            if not self.window_manager or not hasattr(self.window_manager, 'current_window'):
+                return False
+            result = self.window_manager.send_key(
+                self.window_manager.current_window.hwnd,
+                key
+            )
+            if hold_time > 0:
+                time.sleep(hold_time)
+            return result
+        except Exception:
+            return False
+    
+    def execute_action(self, action: BaseAction) -> bool:
+        """执行动作 - executor接口
+        
+        Args:
+            action: 动作对象
+            
+        Returns:
+            bool: 是否成功
+        """
+        # 委托给原有的执行方法
+        return self._execute_action(action) 

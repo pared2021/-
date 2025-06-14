@@ -9,15 +9,13 @@ from src.services.error_handler import ErrorHandler
 from src.common.error_types import ErrorCode, ErrorContext
 from ..vision.state_recognizer import GameState
 
-@dataclass
-class Action:
-    """自动化动作"""
-    name: str  # 动作名称
-    type: str  # 动作类型
-    params: Dict  # 动作参数
-    condition: Optional[Callable[[GameState], bool]] = None  # 执行条件
-    timeout: float = 5.0  # 超时时间
-    retry_count: int = 3  # 重试次数
+# 使用统一的Action体系
+from src.common.action_system import (
+    ActionType, AutomationAction, ActionSequence, ActionFactory, BaseAction
+)
+
+# 向后兼容性别名
+Action = AutomationAction
 
 class AutoController:
     """自动化控制器"""
@@ -167,13 +165,18 @@ class AutoController:
             bool: 是否成功
         """
         try:
-            if action.type == "click":
+            # 使用统一Action体系的执行方法
+            if hasattr(action, 'execute') and callable(action.execute):
+                return action.execute(executor=self)
+            
+            # 向后兼容性处理
+            if action.type == ActionType.CLICK:
                 return self._execute_click(action.params)
-            elif action.type == "key":
+            elif action.type == ActionType.KEY:
                 return self._execute_key(action.params)
-            elif action.type == "wait":
+            elif action.type == ActionType.WAIT:
                 return self._execute_wait(action.params)
-            elif action.type == "condition":
+            elif action.type == ActionType.CONDITION:
                 return self._execute_condition(action.params, current_state)
             else:
                 raise ValueError(f"未知的动作类型: {action.type}")
@@ -301,4 +304,45 @@ class AutoController:
                     error_location="AutoController._execute_condition"
                 )
             )
-            return False 
+            return False
+    
+    # === 统一Action体系executor接口 ===
+    
+    def click(self, x: int, y: int, button: str = "left") -> bool:
+        """点击操作 - executor接口
+        
+        Args:
+            x: X坐标
+            y: Y坐标
+            button: 鼠标按钮
+            
+        Returns:
+            bool: 是否成功
+        """
+        return self._execute_click({"x": x, "y": y, "button": button})
+    
+    def send_key(self, key: str, hold_time: float = 0.0) -> bool:
+        """发送按键 - executor接口
+        
+        Args:
+            key: 按键
+            hold_time: 按住时间
+            
+        Returns:
+            bool: 是否成功
+        """
+        result = self._execute_key({"key": key})
+        if hold_time > 0:
+            time.sleep(hold_time)
+        return result
+    
+    def execute_action(self, action: BaseAction) -> bool:
+        """执行动作 - executor接口
+        
+        Args:
+            action: 动作对象
+            
+        Returns:
+            bool: 是否成功
+        """
+        return self._execute_action(action, None) 

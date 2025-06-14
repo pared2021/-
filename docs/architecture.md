@@ -531,12 +531,12 @@ class CustomService(BaseService):
    ```python
    # ✅ 使用分层异常处理
    from src.services.exceptions import ServiceException
-   from src.common.recovery import RecoveryManager
+   from src.services.error_handler import ErrorHandler
    
    try:
        risky_operation()
    except ServiceException as e:
-       recovery_manager.handle_error(e)
+       error_handler.handle_error(e)
    
    # ❌ 捕获通用异常
    try:
