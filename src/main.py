@@ -32,7 +32,6 @@ def check_dependencies():
         pyqt6_available = True
     except ImportError:
         pyqt6_available = False
-        missing_deps.append("PyQt6")
     
     # 检查PySide6  
     try:
@@ -40,18 +39,30 @@ def check_dependencies():
         pyside6_available = True
     except ImportError:
         pyside6_available = False
-        missing_deps.append("PySide6")
+    
+    # 至少需要一个GUI框架
+    if not pyqt6_available and not pyside6_available:
+        missing_deps.append("PyQt6 或 PySide6")
     
     # 检查其他核心依赖
-    core_deps = ['numpy', 'opencv-python', 'psutil']
-    for dep in core_deps:
+    core_deps = {
+        'numpy': 'numpy',
+        'opencv-python': 'cv2', 
+        'psutil': 'psutil',
+        'pywin32': 'win32gui',  # Windows依赖
+        'GPUtil': 'GPUtil',
+        'mss': 'mss',
+        'keyboard': 'keyboard',
+        'mouse': 'mouse',
+        'torch': 'torch',
+        'pyautogui': 'pyautogui'
+    }
+    
+    for package_name, import_name in core_deps.items():
         try:
-            if dep == 'opencv-python':
-                import cv2
-            else:
-                __import__(dep)
+            __import__(import_name)
         except ImportError:
-            missing_deps.append(dep)
+            missing_deps.append(package_name)
     
     return {
         'pyqt6': pyqt6_available,

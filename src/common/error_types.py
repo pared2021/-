@@ -35,6 +35,36 @@ class ErrorCode(Enum):
     MODEL_ERROR = 6000
     MODEL_LOAD_ERROR = 6001
     MODEL_PREDICTION_ERROR = 6002
+    
+    # UI相关错误 (7000-7999)
+    UI_ERROR = 7000
+    UI_INIT_ERROR = 7001
+    UI_RENDER_ERROR = 7002
+    UI_EVENT_ERROR = 7003
+    
+    # 初始化错误 (8000-8999)
+    INIT_ERROR = 8000
+    SERVICE_INIT_ERROR = 8001
+    COMPONENT_INIT_ERROR = 8002
+    DEPENDENCY_ERROR = 8003
+    
+    # 自动化控制错误 (9000-9999)
+    AUTO_CONTROL_ERROR = 9000
+    AUTO_SEQUENCE_ERROR = 9001
+    AUTO_TIMING_ERROR = 9002
+    AUTO_CONDITION_ERROR = 9003
+    
+    # 模板相关错误 (10000-10999)
+    TEMPLATE_ERROR = 10000
+    TEMPLATE_MATCH_ERROR = 10001
+    TEMPLATE_LOAD_ERROR = 10002
+    TEMPLATE_PARSE_ERROR = 10003
+    
+    # 定时器相关错误 (11000-11999)
+    TIMER_ERROR = 11000
+    TIMER_TIMEOUT_ERROR = 11001
+    TIMER_SCHEDULE_ERROR = 11002
+    TIMER_SYNC_ERROR = 11003
 
 @dataclass
 class ErrorContext:
@@ -90,6 +120,31 @@ class ModelError(GameAutomationError):
     def __init__(self, message: str, error_code: ErrorCode, context: Optional[ErrorContext] = None):
         super().__init__(message, error_code, context)
 
+class UIError(GameAutomationError):
+    """UI相关错误"""
+    def __init__(self, message: str, error_code: ErrorCode, context: Optional[ErrorContext] = None):
+        super().__init__(message, error_code, context)
+
+class InitError(GameAutomationError):
+    """初始化相关错误"""
+    def __init__(self, message: str, error_code: ErrorCode, context: Optional[ErrorContext] = None):
+        super().__init__(message, error_code, context)
+
+class AutoControlError(GameAutomationError):
+    """自动化控制相关错误"""
+    def __init__(self, message: str, error_code: ErrorCode, context: Optional[ErrorContext] = None):
+        super().__init__(message, error_code, context)
+
+class TemplateError(GameAutomationError):
+    """模板相关错误"""
+    def __init__(self, message: str, error_code: ErrorCode, context: Optional[ErrorContext] = None):
+        super().__init__(message, error_code, context)
+
+class TimerError(GameAutomationError):
+    """定时器相关错误"""
+    def __init__(self, message: str, error_code: ErrorCode, context: Optional[ErrorContext] = None):
+        super().__init__(message, error_code, context)
+
 # 错误类型映射
 ERROR_TYPE_MAP = {
     ErrorCode.WINDOW_ERROR: WindowError,
@@ -108,4 +163,24 @@ ERROR_TYPE_MAP = {
     ErrorCode.MODEL_ERROR: ModelError,
     ErrorCode.MODEL_LOAD_ERROR: ModelError,
     ErrorCode.MODEL_PREDICTION_ERROR: ModelError,
+    ErrorCode.UI_ERROR: UIError,
+    ErrorCode.UI_INIT_ERROR: UIError,
+    ErrorCode.UI_RENDER_ERROR: UIError,
+    ErrorCode.UI_EVENT_ERROR: UIError,
+    ErrorCode.INIT_ERROR: InitError,
+    ErrorCode.SERVICE_INIT_ERROR: InitError,
+    ErrorCode.COMPONENT_INIT_ERROR: InitError,
+    ErrorCode.DEPENDENCY_ERROR: InitError,
+    ErrorCode.AUTO_CONTROL_ERROR: AutoControlError,
+    ErrorCode.AUTO_SEQUENCE_ERROR: AutoControlError,
+    ErrorCode.AUTO_TIMING_ERROR: AutoControlError,
+    ErrorCode.AUTO_CONDITION_ERROR: AutoControlError,
+    ErrorCode.TEMPLATE_ERROR: TemplateError,
+    ErrorCode.TEMPLATE_MATCH_ERROR: TemplateError,
+    ErrorCode.TEMPLATE_LOAD_ERROR: TemplateError,
+    ErrorCode.TEMPLATE_PARSE_ERROR: TemplateError,
+    ErrorCode.TIMER_ERROR: TimerError,
+    ErrorCode.TIMER_TIMEOUT_ERROR: TimerError,
+    ErrorCode.TIMER_SCHEDULE_ERROR: TimerError,
+    ErrorCode.TIMER_SYNC_ERROR: TimerError,
 } 
