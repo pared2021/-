@@ -8,6 +8,89 @@ from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from .config import Config
 from .exceptions import GameAutomationError
 
+class ErrorDeduplicator:
+    """错误去重器"""
+    
+    def __init__(self, dedupe_window: float = 60.0, max_count: int = 100):
+        """
+        初始化去重器
+        
+        Args:
+            dedupe_window: 去重时间窗口（秒）
+            max_count: 最大记录数量
+        """
+        self.dedupe_window = dedupe_window
+        self.max_count = max_count
+        self._error_cache: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.Lock()
+    
+    def should_log_error(self, error_key: str, timestamp: float) -> bool:
+        """
+        判断是否应该记录此错误
+        
+        Args:
+            error_key: 错误标识键
+            timestamp: 当前时间戳
+            
+        Returns:
+            bool: 是否应该记录
+        """
+        with self._lock:
+            # 清理过期记录
+            self._cleanup_expired(timestamp)
+            
+            if error_key in self._error_cache:
+                error_info = self._error_cache[error_key]
+                last_time = error_info['last_time']
+                count = error_info['count']
+                
+                # 如果在去重窗口内
+                if timestamp - last_time < self.dedupe_window:
+                    # 更新计数和时间
+                    error_info['count'] += 1
+                    error_info['last_time'] = timestamp
+                    
+                    # 只有第一次和特定间隔才记录
+                    if count == 1 or count % 10 == 0:  # 每10次重复记录一次
+                        return True
+                    return False
+                else:
+                    # 超出窗口，重置计数
+                    error_info['count'] = 1
+                    error_info['last_time'] = timestamp
+                    error_info['first_time'] = timestamp
+                    return True
+            else:
+                # 新错误
+                self._error_cache[error_key] = {
+                    'count': 1,
+                    'first_time': timestamp,
+                    'last_time': timestamp
+                }
+                return True
+    
+    def _cleanup_expired(self, current_time: float):
+        """清理过期的错误记录"""
+        expired_keys = []
+        for key, info in self._error_cache.items():
+            if current_time - info['last_time'] > self.dedupe_window * 2:
+                expired_keys.append(key)
+        
+        for key in expired_keys:
+            del self._error_cache[key]
+        
+        # 限制缓存大小
+        if len(self._error_cache) > self.max_count:
+            # 移除最旧的记录
+            oldest_key = min(self._error_cache.keys(), 
+                           key=lambda k: self._error_cache[k]['first_time'])
+            del self._error_cache[oldest_key]
+    
+    def get_error_summary(self) -> Dict[str, int]:
+        """获取错误统计摘要"""
+        with self._lock:
+            return {key: info['count'] for key, info in self._error_cache.items()}
+
 class GameLogger:
     """游戏自动化日志类"""
     
@@ -72,13 +155,20 @@ class GameLogger:
         self._max_recursion_depth = config.logging.max_recursion_depth
         self._recursion_messages = {}  # 消息缓存，防止重复记录
         
+        # 错误去重器
+        self._error_deduplicator = ErrorDeduplicator(
+            dedupe_window=60.0,  # 1分钟内的重复错误
+            max_count=1000
+        )
+        
         # 性能统计
         self._stats = {
             'debug': 0,
             'info': 0,
             'warning': 0,
             'error': 0,
-            'critical': 0
+            'critical': 0,
+            'deduplicated': 0  # 被去重的日志数量
         }
         self._stats_lock = threading.Lock()
         
@@ -144,6 +234,46 @@ class GameLogger:
     def exception(self, message: str, *args, **kwargs):
         """记录异常信息"""
         self._log_with_recursion_guard(self.logger.exception, message, *args, **kwargs)
+    
+    def log_with_deduplication(self, level: int, message: str, dedupe_window: float = 60.0):
+        """
+        带去重功能的日志记录
+        
+        Args:
+            level: 日志级别
+            message: 日志消息
+            dedupe_window: 去重时间窗口
+        """
+        current_time = time.time()
+        error_key = f"{level}:{message}"
+        
+        # 检查是否应该记录此错误
+        if self._error_deduplicator.should_log_error(error_key, current_time):
+            # 获取重复次数信息
+            error_summary = self._error_deduplicator.get_error_summary()
+            repeat_count = error_summary.get(error_key, 1)
+            
+            # 如果有重复，在消息中包含重复次数
+            if repeat_count > 1:
+                enhanced_message = f"{message} (重复 {repeat_count} 次)"
+            else:
+                enhanced_message = message
+            
+            # 根据级别记录日志
+            if level >= logging.CRITICAL:
+                self.critical(enhanced_message)
+            elif level >= logging.ERROR:
+                self.error(enhanced_message)
+            elif level >= logging.WARNING:
+                self.warning(enhanced_message)
+            elif level >= logging.INFO:
+                self.info(enhanced_message)
+            else:
+                self.debug(enhanced_message)
+        else:
+            # 更新被去重的统计
+            with self._stats_lock:
+                self._stats['deduplicated'] += 1
     
     def log_screenshot(self, image: Optional[bytes], description: str = ''):
         """

@@ -362,13 +362,10 @@ class GameWindowManager(QObject):
                 # 尝试捕获窗口
                 screenshot = self.capture_window()
                 
-                # 检查类型，确保返回有效的numpy数组
-                if screenshot is not None and isinstance(screenshot, np.ndarray) and screenshot.size > 0:
+                # capture_window内部已经进行了验证，这里只需简单检查
+                if screenshot is not None:
                     self.screenshot = screenshot
                     self.notify_screenshot_updated(screenshot)
-                elif isinstance(screenshot, bool):
-                    self.logger.warning(f"获取截图返回错误类型: 布尔值({screenshot})")
-                    return None
                 
             return self.screenshot
         except Exception as e:
@@ -424,7 +421,7 @@ class GameWindowManager(QObject):
         """
         try:
             if not self.window_handle:
-                # 只有日志级别为调试时才显示这个警告，避免过多输出
+                # 降级为调试级别，避免日志污染
                 self.logger.debug("无法检查窗口状态: 窗口未找到")
                 return False
             
@@ -450,7 +447,7 @@ class GameWindowManager(QObject):
             is_active = foreground_window == self.window_handle
             
             if not is_active:
-                # 只有日志级别为调试时才显示这个警告，避免过多输出
+                # 降级为调试级别，避免日志污染
                 self.logger.debug("游戏窗口未激活")
                 # 尝试激活窗口
                 try:
@@ -782,20 +779,73 @@ class GameWindowManager(QObject):
             # 使用捕获引擎捕获窗口
             frame = self.capture_engine.capture(target_info)
             
-            if frame is None:
-                self.logger.error("所有捕获引擎都失败了")
+            # 验证捕获结果
+            validated_frame = self._validate_capture_result(frame)
+            if validated_frame is None:
+                self.logger.error("所有捕获引擎都失败了或返回无效数据")
                 return None
             
             # 存储截图
-            self.screenshot = frame.copy()
+            self.screenshot = validated_frame.copy()
             
             # 通知截图更新
-            self.notify_screenshot_updated(frame)
+            self.notify_screenshot_updated(validated_frame)
             
-            return frame
+            return validated_frame
                 
         except Exception as e:
             self.logger.error(f"捕获窗口画面失败: {e}")
+            return None
+    
+    def _validate_capture_result(self, frame: Any) -> Optional[np.ndarray]:
+        """验证捕获结果的数据类型和有效性
+        
+        Args:
+            frame: 捕获引擎返回的数据
+            
+        Returns:
+            Optional[np.ndarray]: 验证后的图像数组，如果无效则返回None
+        """
+        try:
+            # 检查是否为None
+            if frame is None:
+                self.logger.debug("捕获结果为None")
+                return None
+            
+            # 检查是否为布尔值（错误返回）
+            if isinstance(frame, bool):
+                self.logger.warning(f"捕获引擎返回布尔值: {frame}")
+                return None
+            
+            # 检查是否为numpy数组
+            if not isinstance(frame, np.ndarray):
+                self.logger.warning(f"捕获结果类型错误: {type(frame)}, 期望np.ndarray")
+                return None
+            
+            # 检查数组维度
+            if frame.ndim not in [2, 3]:
+                self.logger.warning(f"图像数组维度错误: {frame.ndim}, 期望2或3维")
+                return None
+            
+            # 检查数组大小
+            if frame.size == 0:
+                self.logger.warning("图像数组为空")
+                return None
+            
+            # 检查图像尺寸合理性
+            if frame.shape[0] < 10 or frame.shape[1] < 10:
+                self.logger.warning(f"图像尺寸过小: {frame.shape}")
+                return None
+            
+            # 如果是3维数组，检查通道数
+            if frame.ndim == 3 and frame.shape[2] not in [1, 3, 4]:
+                self.logger.warning(f"图像通道数错误: {frame.shape[2]}, 期望1、3或4")
+                return None
+            
+            return frame
+            
+        except Exception as e:
+            self.logger.error(f"验证捕获结果时发生错误: {e}")
             return None
     
     def start_capture(self):

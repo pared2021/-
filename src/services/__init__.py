@@ -4,19 +4,26 @@ from .config import Config, config
 # 可选服务（有外部依赖）
 __all__ = ['Config', 'config']
 
-# 尝试导入其他服务，如果失败则跳过
-try:
-    from .logger import GameLogger
-    __all__.append('GameLogger')
-except ImportError:
-    GameLogger = None
-
+# 按依赖顺序导入服务，避免循环导入
 try:
     from .exceptions import GameAutomationError, WindowNotFoundError
     __all__.extend(['GameAutomationError', 'WindowNotFoundError'])
 except ImportError:
     GameAutomationError = None
     WindowNotFoundError = None
+
+try:
+    from .logger import GameLogger
+    __all__.append('GameLogger')
+except ImportError:
+    GameLogger = None
+
+# 错误处理器（依赖于logger和exceptions）
+try:
+    from .error_handler import ErrorHandler
+    __all__.append('ErrorHandler')
+except ImportError:
+    ErrorHandler = None
 
 # 需要外部依赖的服务
 try:
