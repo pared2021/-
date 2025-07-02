@@ -61,7 +61,14 @@ class ImageRecognition:
         gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
 
         # 使用SIFT检测特征点
-        sift = cv2.SIFT_create()
+        try:
+            sift = cv2.SIFT.create()
+        except AttributeError:
+            try:
+                sift = cv2.SIFT_create()
+            except AttributeError:
+                # 如果SIFT不可用，使用ORB作为替代
+                sift = cv2.ORB_create()
         keypoints = sift.detect(gray, None)
 
         icons = []

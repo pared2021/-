@@ -1,9 +1,5 @@
 import cv2
 import numpy as np
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
-from PIL import Image
 import os
 import json
 from typing import Optional, Dict, List, Any, Tuple
@@ -11,6 +7,21 @@ from .logger import GameLogger
 from .image_processor import ImageProcessor
 from .config import Config
 from src.common.error_types import ErrorCode, ModelError, ErrorContext
+
+# 可选的深度学习依赖
+try:
+    import torch
+    import torch.nn as nn
+    from torchvision import models, transforms
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    torch = None
+    nn = None
+    models = None
+    transforms = None
+
+from PIL import Image
 
 class GameAnalyzer:
     """游戏分析器，使用深度学习模型识别游戏元素"""
@@ -34,15 +45,20 @@ class GameAnalyzer:
         self.model_path = "models/game_model.pth"
         self.model_config = "models/model_config.json"
         
-        # 图像预处理
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                              std=[0.229, 0.224, 0.225])
-        ])
+        # 检查深度学习可用性
+        if not TORCH_AVAILABLE:
+            self.logger.warning("深度学习库(torch/torchvision)不可用，将仅使用传统图像处理方法")
+            self.transform = None
+        else:
+            # 图像预处理
+            self.transform = transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                  std=[0.229, 0.224, 0.225])
+            ])
         
         # 加载自定义分类器
         self.custom_classifier = None
@@ -87,6 +103,10 @@ class GameAnalyzer:
     def load_model(self) -> bool:
         """加载模型"""
         try:
+            if not TORCH_AVAILABLE:
+                self.logger.warning("深度学习库不可用，无法加载模型")
+                return False
+            
             if not self.is_initialized:
                 self.error_handler.handle_error(
                     ModelError(
@@ -168,19 +188,15 @@ class GameAnalyzer:
                     )
                 )
                 return None
+            
+            # 如果深度学习不可用，使用传统方法分析
+            if not TORCH_AVAILABLE:
+                return self._analyze_frame_traditional(frame)
                 
             if self.model is None:
-                self.error_handler.handle_error(
-                    ModelError(
-                        ErrorCode.MODEL_NOT_LOADED,
-                        "模型未加载",
-                        ErrorContext(
-                            source="GameAnalyzer.analyze_frame",
-                            details="model is None"
-                        )
-                    )
-                )
-                return None
+                # 模型未加载，回退到传统方法
+                self.logger.debug("模型未加载，使用传统图像处理方法")
+                return self._analyze_frame_traditional(frame)
                 
             # 预处理图像
             processed_frame = self._preprocess_frame(frame)
@@ -208,12 +224,43 @@ class GameAnalyzer:
                 )
             )
             return None
+    
+    def _analyze_frame_traditional(self, frame: np.ndarray) -> Dict[str, Any]:
+        """使用传统图像处理方法分析画面"""
+        try:
+            # 使用图像处理服务的分析功能
+            result = self.image_processor.analyze_frame(frame)
+            
+            # 添加游戏特定的分析
+            result.update({
+                'buttons': self._detect_buttons(frame),
+                'enemies': self._detect_enemies(frame), 
+                'items': self._detect_items(frame),
+                'dialog': self._detect_dialog(frame),
+            })
+            
+            # 检测生命值和法力值
+            health, mana = self._detect_health_mana(frame)
+            if health is not None:
+                result['health'] = health
+            if mana is not None:
+                result['mana'] = mana
+                
+            # 检测玩家位置
+            position = self._detect_player_position(frame)
+            result['player_position'] = position
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"传统方法分析失败: {e}")
+            return {}
             
     def is_model_loaded(self) -> bool:
         """检查模型是否已加载"""
         return self.model is not None
         
-    def _create_model(self) -> nn.Module:
+    def _create_model(self):
         """创建模型"""
         try:
             # 根据配置创建模型
@@ -248,7 +295,7 @@ class GameAnalyzer:
             )
             return None
             
-    def _create_cnn_model(self, config: Dict[str, Any]) -> nn.Module:
+    def _create_cnn_model(self, config: Dict[str, Any]):
         """创建CNN模型"""
         try:
             # 获取配置参数
@@ -287,13 +334,16 @@ class GameAnalyzer:
             )
             return None
             
-    def _preprocess_frame(self, frame: np.ndarray) -> Optional[torch.Tensor]:
+    def _preprocess_frame(self, frame: np.ndarray):
         """预处理图像"""
         try:
+            if not TORCH_AVAILABLE:
+                return None
+                
             if frame is None or not isinstance(frame, np.ndarray):
                 self.error_handler.handle_error(
                     ModelError(
-                        ErrorCode.INVALID_FRAME,
+                        ErrorCode.IMAGE_PROCESSING_ERROR,
                         "无效的图像数据",
                         ErrorContext(
                             source="GameAnalyzer._preprocess_frame",
@@ -316,7 +366,7 @@ class GameAnalyzer:
         except Exception as e:
             self.error_handler.handle_error(
                 ModelError(
-                    ErrorCode.FRAME_PREPROCESSING_FAILED,
+                    ErrorCode.IMAGE_PROCESSING_ERROR,
                     "图像预处理失败",
                     ErrorContext(
                         source="GameAnalyzer._preprocess_frame",
@@ -326,9 +376,12 @@ class GameAnalyzer:
             )
             return None
             
-    def _postprocess_output(self, output: torch.Tensor) -> Dict[str, Any]:
+    def _postprocess_output(self, output) -> Dict[str, Any]:
         """后处理模型输出"""
         try:
+            if not TORCH_AVAILABLE or output is None:
+                return {}
+                
             # 获取预测结果
             predictions = output.softmax(dim=1)
             class_idx = predictions.argmax(dim=1).item()
@@ -343,7 +396,7 @@ class GameAnalyzer:
         except Exception as e:
             self.error_handler.handle_error(
                 ModelError(
-                    ErrorCode.OUTPUT_POSTPROCESSING_FAILED,
+                    ErrorCode.IMAGE_PROCESSING_ERROR,
                     "输出后处理失败",
                     ErrorContext(
                         source="GameAnalyzer._postprocess_output",
@@ -369,6 +422,10 @@ class GameAnalyzer:
         Returns:
             bool: 是否加载成功
         """
+        if not TORCH_AVAILABLE:
+            self.logger.warning("深度学习库不可用，无法加载自定义分类器")
+            return False
+            
         if os.path.exists(model_path):
             try:
                 self.custom_classifier = torch.load(model_path)
@@ -393,6 +450,11 @@ class GameAnalyzer:
             np.ndarray: 特征向量
         """
         try:
+            if not TORCH_AVAILABLE or self.transform is None:
+                self.logger.warning("深度学习库不可用，无法提取深度特征")
+                # 使用传统图像特征作为替代
+                return self._extract_traditional_features(frame)
+            
             # 预处理图像
             img_tensor = self.transform(frame)
             img_tensor = img_tensor.unsqueeze(0)
@@ -404,6 +466,28 @@ class GameAnalyzer:
             return features.numpy()
         except Exception as e:
             self.logger.error(f"提取图像特征失败: {e}")
+            return np.array([])
+    
+    def _extract_traditional_features(self, frame: np.ndarray) -> np.ndarray:
+        """提取传统图像特征"""
+        try:
+            # 转换为灰度图
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+            # 提取基本统计特征
+            features = []
+            features.append(np.mean(gray))  # 平均亮度
+            features.append(np.std(gray))   # 亮度标准差
+            features.append(np.min(gray))   # 最小值
+            features.append(np.max(gray))   # 最大值
+            
+            # 提取直方图特征
+            hist = cv2.calcHist([gray], [0], None, [32], [0, 256])
+            features.extend(hist.flatten())
+            
+            return np.array(features)
+        except Exception as e:
+            self.logger.error(f"提取传统特征失败: {e}")
             return np.array([])
         
     def analyze_game_state(self, frame: np.ndarray) -> Dict[str, Any]:

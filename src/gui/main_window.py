@@ -48,14 +48,14 @@ from src.editor.code_formatter import CodeFormatter
 from src.editor.project_manager import ProjectManager
 from src.performance.performance_monitor import PerformanceMonitor, PerformanceMetrics
 from src.performance.performance_view import PerformanceView
-from src.services.window_manager import WindowManager, WindowInfo
+from src.services.window_manager import GameWindowManager, WindowInfo
 from src.services.image_processor import ImageProcessor, TemplateMatchResult
 from src.services.auto_operator import AutoOperator, Action
 from src.services.game_state_analyzer import GameStateAnalyzer, GameState
 from .state_history_view import StateHistoryView
 from .widgets.game_view import GameView
 from .widgets.control_panel import ControlPanel
-from src.services.window.window_capture import WindowCapture
+from src.services.capture_engines import GameCaptureEngine as WindowCapture
 from src.services.vision.template_matcher import TemplateMatcher
 from src.services.vision.state_recognizer import StateRecognizer
 from src.services.automation.auto_controller import AutoController
@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         self.resource_manager = ResourceManager("config/resource.json")
         self.task_scheduler = TaskScheduler(self.resource_manager)
         self.error_handler = ErrorHandler("logs/snapshots")
-        self.window_manager = WindowManager(self.error_handler)
+        self.window_manager = GameWindowManager(self.error_handler)
         self.image_processor = ImageProcessor(self.error_handler)
         self.auto_operator = AutoOperator(self.error_handler, self.window_manager, self.image_processor)
         self.game_state_analyzer = GameStateAnalyzer(self.error_handler)
@@ -545,7 +545,7 @@ class MainWindow(QMainWindow):
         """初始化服务"""
         try:
             # 窗口服务
-            self.window_manager = WindowManager(self.error_handler)
+            self.window_manager = GameWindowManager(self.error_handler)
             self.window_capture = WindowCapture(self.error_handler)
             
             # 视觉服务
