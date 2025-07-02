@@ -4,11 +4,11 @@
 from typing import Optional, Dict
 import json
 import os
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                            QPushButton, QTabWidget, QWidget, QFormLayout,
                            QSpinBox, QLineEdit, QCheckBox, QGroupBox,
                            QMessageBox, QFileDialog)
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 
 from src.services.error_handler import ErrorHandler
 from src.common.error_types import ErrorCode, ErrorContext

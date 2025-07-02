@@ -76,8 +76,16 @@ class MainWindow(QMainWindow):
         self.resource_manager = ResourceManager("config/resource.json")
         self.task_scheduler = TaskScheduler(self.resource_manager)
         self.error_handler = ErrorHandler("logs/snapshots")
-        self.window_manager = GameWindowManager(self.error_handler)
-        self.image_processor = ImageProcessor(self.error_handler)
+        
+        # 创建GameWindowManager所需的依赖
+        from src.services.logger import GameLogger
+        from src.services.config import Config
+        
+        config = Config()
+        game_logger = GameLogger(config, "MainWindow")
+        
+        self.window_manager = GameWindowManager(game_logger, config, self.error_handler)
+        self.image_processor = ImageProcessor(game_logger, config, self.error_handler)
         self.auto_operator = AutoOperator(self.error_handler, self.window_manager, self.image_processor)
         self.game_state_analyzer = GameStateAnalyzer(self.error_handler)
         self.game_adapters: Dict[str, GameAdapter] = {}
@@ -88,11 +96,11 @@ class MainWindow(QMainWindow):
         self.macro_editor = MacroEditor()
         self.code_formatter = CodeFormatter()
         self.project_manager = ProjectManager()
-        self.performance_monitor = PerformanceMonitor(self.error_handler)
+        self.performance_monitor = PerformanceMonitor("游戏")
         self.state_history = StateHistoryView()  # 状态历史视图
         self.game_view = GameView()  # 游戏画面显示
         self.control_panel = ControlPanel()  # 控制面板
-        self.window_capture = WindowCapture(self.error_handler)
+        self.window_capture = WindowCapture(game_logger)
         self.template_matcher = TemplateMatcher(self.error_handler)
         self.state_recognizer = StateRecognizer(self.error_handler)
         self.auto_controller = AutoController(self.error_handler)
@@ -123,13 +131,18 @@ class MainWindow(QMainWindow):
         self.monitor_timer.timeout.connect(self._on_monitor_timeout)
         self.monitor_timer.start(1000)  # 1fps
 
-        self.error_handler = ErrorHandler()
+        # 重用之前创建的logger（需要重新创建因为作用域问题）
+        from src.services.logger import GameLogger
+        from src.services.config import Config
+        
+        config_for_error = Config()
+        error_logger = GameLogger(config_for_error, "ErrorHandler")
+        self.error_handler = ErrorHandler(error_logger)
         self.config_dir = "config"
         self.config_file = "config.json"
         
         self._init_services()
         self._load_config()
-        self._init_timers()
 
     def _create_ui(self):
         """创建UI界面"""
@@ -544,12 +557,18 @@ class MainWindow(QMainWindow):
     def _init_services(self):
         """初始化服务"""
         try:
-            # 窗口服务
-            self.window_manager = GameWindowManager(self.error_handler)
-            self.window_capture = WindowCapture(self.error_handler)
+            # 窗口服务 - 重新创建配置和日志对象
+            from src.services.logger import GameLogger
+            from src.services.config import Config
+            
+            config = Config()
+            game_logger = GameLogger(config, "MainWindow_Services")
+            
+            self.window_manager = GameWindowManager(game_logger, config, self.error_handler)
+            self.window_capture = WindowCapture(game_logger)
             
             # 视觉服务
-            self.image_processor = ImageProcessor(self.error_handler)
+            self.image_processor = ImageProcessor(game_logger, config, self.error_handler)
             self.template_matcher = TemplateMatcher(self.error_handler)
             self.state_recognizer = StateRecognizer(self.error_handler)
             
@@ -557,7 +576,7 @@ class MainWindow(QMainWindow):
             self.auto_controller = AutoController(self.error_handler)
             
             # 监控服务
-            self.performance_monitor = PerformanceMonitor(self.error_handler)
+            self.performance_monitor = PerformanceMonitor("游戏")
             
         except Exception as e:
             self.error_handler.handle_error(

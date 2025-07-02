@@ -2,11 +2,11 @@
 状态模板管理对话框
 """
 from typing import Optional, List, Dict, Tuple
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                            QPushButton, QListWidget, QListWidgetItem, QSpinBox,
                            QLineEdit, QGroupBox, QMessageBox, QFileDialog)
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QImage, QPixmap
 
 from services.vision.state_recognizer import StateRecognizer, GameState
 from src.services.error_handler import ErrorHandler
@@ -72,7 +72,7 @@ class TemplateManagerDialog(QDialog):
         preview_layout = QVBoxLayout(preview_group)
         
         self.preview_label = QLabel()
-        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setMinimumSize(400, 300)
         preview_layout.addWidget(self.preview_label)
         
@@ -153,13 +153,13 @@ class TemplateManagerDialog(QDialog):
                         height, width = template.shape
                         bytes_per_line = width
                         q_image = QImage(template.data, width, height,
-                                       bytes_per_line, QImage.Format_Grayscale8)
+                                       bytes_per_line, QImage.Format.Format_Grayscale8)
                         
                         # 缩放图像
                         pixmap = QPixmap.fromImage(q_image)
                         scaled_pixmap = pixmap.scaled(self.preview_label.size(),
-                                                    Qt.KeepAspectRatio,
-                                                    Qt.SmoothTransformation)
+                                                    Qt.AspectRatioMode.KeepAspectRatio,
+                                                    Qt.TransformationMode.SmoothTransformation)
                         
                         # 显示图像
                         self.preview_label.setPixmap(scaled_pixmap)
@@ -215,7 +215,7 @@ class TemplateManagerDialog(QDialog):
                 self._load_templates()
                 
                 # 选择新添加的模板
-                items = self.template_list.findItems(state_name, Qt.MatchExactly)
+                items = self.template_list.findItems(state_name, Qt.MatchFlag.MatchExactly)
                 if items:
                     self.template_list.setCurrentItem(items[0])
                     
@@ -284,11 +284,11 @@ class TemplateManagerDialog(QDialog):
                 self,
                 "确认删除",
                 f"确定要删除模板 {item.text()} 吗？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
             )
             
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 # 删除模板
                 state_name = item.text()
                 if state_name in self.state_recognizer.states:
