@@ -6,7 +6,12 @@ from src.common.error_types import (
     GameAutomationError,
     ErrorCode,
     ErrorContext,
-    ERROR_TYPE_MAP
+    ERROR_TYPE_MAP,
+    WindowError,
+    ImageProcessingError,
+    ActionError,
+    StateError,
+    ModelError
 )
 from src.services.logger import GameLogger
 import numpy as np

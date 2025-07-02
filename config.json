@@ -1,0 +1,20 @@
+{
+    "window_title": "游戏自动操作工具",
+    "window_size": [
+        800,
+        600
+    ],
+    "language": "zh_CN",
+    "theme": "default",
+    "hotkeys": {
+        "start_record": "F9",
+        "stop_record": "F10",
+        "start_playback": "F11",
+        "stop_playback": "F12"
+    },
+    "playback_options": {
+        "speed": 1.0,
+        "loop_count": 1,
+        "random_delay": 0.0
+    }
+}

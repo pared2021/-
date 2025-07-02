@@ -35,30 +35,30 @@ import json
 import os
 from pathlib import Path
 
-from core.resource_manager import ResourceManager
-from core.task_system import TaskScheduler, Task, TaskPriority, TaskStatus
+from src.core.resource_manager import ResourceManager
+from src.core.task_system import TaskScheduler, Task, TaskPriority, TaskStatus
 from src.services.error_handler import ErrorHandler
 from src.common.error_types import ErrorCode, ErrorContext
-from core.game_adapter import GameAdapter
-from macro.macro_recorder import MacroRecorder
-from macro.macro_player import MacroPlayer
-from macro.macro_editor import MacroEditor
-from editor.script_editor import ScriptEditor
-from editor.code_formatter import CodeFormatter
-from editor.project_manager import ProjectManager
-from performance.performance_monitor import PerformanceMonitor, PerformanceMetrics
-from performance.performance_view import PerformanceView
-from services.window_manager import WindowManager, WindowInfo
-from services.image_processor import ImageProcessor, TemplateMatchResult
-from services.auto_operator import AutoOperator, Action
-from services.game_state_analyzer import GameStateAnalyzer, GameState
+from src.core.game_adapter import GameAdapter
+from src.macro.macro_recorder import MacroRecorder
+from src.macro.macro_player import MacroPlayer
+from src.macro.macro_editor import MacroEditor
+from src.editor.script_editor import ScriptEditor
+from src.editor.code_formatter import CodeFormatter
+from src.editor.project_manager import ProjectManager
+from src.performance.performance_monitor import PerformanceMonitor, PerformanceMetrics
+from src.performance.performance_view import PerformanceView
+from src.services.window_manager import WindowManager, WindowInfo
+from src.services.image_processor import ImageProcessor, TemplateMatchResult
+from src.services.auto_operator import AutoOperator, Action
+from src.services.game_state_analyzer import GameStateAnalyzer, GameState
 from .state_history_view import StateHistoryView
 from .widgets.game_view import GameView
 from .widgets.control_panel import ControlPanel
-from services.window.window_capture import WindowCapture
-from services.vision.template_matcher import TemplateMatcher
-from services.vision.state_recognizer import StateRecognizer
-from services.automation.auto_controller import AutoController
+from src.services.window.window_capture import WindowCapture
+from src.services.vision.template_matcher import TemplateMatcher
+from src.services.vision.state_recognizer import StateRecognizer
+from src.services.automation.auto_controller import AutoController
 from .dialogs.template_manager_dialog import TemplateManagerDialog
 from .dialogs.automation_manager_dialog import AutomationManagerDialog
 from .dialogs.config_manager_dialog import ConfigManagerDialog

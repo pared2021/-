@@ -1,0 +1,40 @@
+# Python 3.11.9 嵌入式版本下载源配置
+# 格式: 架构|下载URL
+# 支持的架构: x64, x86
+
+# === 64位版本下载源 ===
+# 官方源
+x64|https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip
+
+# 华为云镜像源
+x64|https://mirrors.huaweicloud.com/python/3.11.9/python-3.11.9-embed-amd64.zip
+
+# 阿里云镜像源
+x64|https://mirrors.aliyun.com/python-release/windows/python-3.11.9-embed-amd64.zip
+
+# 腾讯云镜像源
+x64|https://mirrors.cloud.tencent.com/python/3.11.9/python-3.11.9-embed-amd64.zip
+
+# 清华大学镜像源
+x64|https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/python-3.11.9-embed-amd64.zip
+
+# === 32位版本下载源 ===
+# 官方源
+x86|https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-win32.zip
+
+# 华为云镜像源
+x86|https://mirrors.huaweicloud.com/python/3.11.9/python-3.11.9-embed-win32.zip
+
+# 阿里云镜像源
+x86|https://mirrors.aliyun.com/python-release/windows/python-3.11.9-embed-win32.zip
+
+# 腾讯云镜像源
+x86|https://mirrors.cloud.tencent.com/python/3.11.9/python-3.11.9-embed-win32.zip
+
+# 清华大学镜像源
+x86|https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/python-3.11.9-embed-win32.zip
+
+# 备注:
+# - 脚本会按顺序尝试这些下载源
+# - 如果某个源不可用，会自动尝试下一个
+# - 建议定期更新这个列表以获得最佳下载体验 

@@ -15,10 +15,10 @@ from ctypes import windll
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from core.game_adapter import GameAdapter, GameWindow, GameState
-from core.game_analyzer import GameAnalyzer
+from src.core.game_adapter import GameAdapter, GameWindow, GameState
+from src.core.unified_game_analyzer import UnifiedGameAnalyzer as GameAnalyzer
 from src.services.error_handler import ErrorHandler
-from core.task_system import Task, TaskPriority
+from src.core.task_system import Task, TaskPriority
 
 
 class StarRailScene(Enum):

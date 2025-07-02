@@ -17,10 +17,10 @@ import win32con
 import win32gui
 import win32ui
 
-from core.game_adapter import GameAdapter, GameWindow, GameState
-from core.game_analyzer import GameAnalyzer
+from src.core.game_adapter import GameAdapter, GameWindow, GameState
+from src.core.unified_game_analyzer import UnifiedGameAnalyzer as GameAnalyzer
 from src.services.error_handler import ErrorHandler
-from core.task_system import TaskSystem, Task, TaskPriority
+from src.core.task_system import TaskSystem, Task, TaskPriority
 
 
 class ArknightsScene(Enum):

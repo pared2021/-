@@ -171,7 +171,7 @@ class Config:
     # 兼容旧ConfigManager的字段
     _legacy_config: Dict[str, Any] = field(default_factory=dict)
     _config_file: str = "config.json"
-    _logger: logging.Logger = field(default_factory=lambda: logging.getLogger("ConfigManager"))
+    _logger: Any = field(default_factory=lambda: logging.getLogger("ConfigManager"))
 
     def __post_init__(self):
         """初始化后处理"""
