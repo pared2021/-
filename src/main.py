@@ -44,18 +44,14 @@ def check_dependencies():
     if not pyqt6_available and not pyside6_available:
         missing_deps.append("PyQt6 或 PySide6")
     
-    # 检查其他核心依赖
+    # 检查桌面自动化核心依赖
     core_deps = {
         'numpy': 'numpy',
         'opencv-python': 'cv2', 
         'psutil': 'psutil',
+        'pyautogui': 'pyautogui',
         'pywin32': 'win32gui',  # Windows依赖
-        'GPUtil': 'GPUtil',
-        'mss': 'mss',
-        'keyboard': 'keyboard',
-        'mouse': 'mouse',
-        'torch': 'torch',
-        'pyautogui': 'pyautogui'
+        'loguru': 'loguru'
     }
     
     for package_name, import_name in core_deps.items():

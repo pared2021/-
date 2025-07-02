@@ -145,6 +145,9 @@ class TimerError(GameAutomationError):
     def __init__(self, message: str, error_code: ErrorCode, context: Optional[ErrorContext] = None):
         super().__init__(message, error_code, context)
 
+# 兼容性别名
+AutomationError = GameAutomationError
+
 # 错误类型映射
 ERROR_TYPE_MAP = {
     ErrorCode.WINDOW_ERROR: WindowError,
