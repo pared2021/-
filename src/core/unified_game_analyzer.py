@@ -96,7 +96,7 @@ class UnifiedGameAnalyzer:
         
         self.logger.info(f"统一游戏分析器初始化完成 (游戏: {game_name})")
     
-    def _create_feature_detector(self) -> cv2.FeatureDetector:
+    def _create_feature_detector(self):
         """创建特征检测器"""
         try:
             return cv2.SIFT.create()

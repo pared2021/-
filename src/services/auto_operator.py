@@ -10,7 +10,7 @@ from src.services.config import Config
 from dataclasses import dataclass
 from src.common.error_types import ErrorCode, AutomationError, ErrorContext
 from src.services.error_handler import ErrorHandler
-from src.services.window_manager import WindowManager
+from src.services.window_manager import GameWindowManager
 from src.services.image_processor import ImageProcessor, TemplateMatchResult
 
 # 使用统一的Action体系
@@ -24,7 +24,7 @@ Action = AutomationAction
 class AutoOperator:
     """自动化操作器"""
     
-    def __init__(self, error_handler: ErrorHandler, window_manager: WindowManager, image_processor: ImageProcessor):
+    def __init__(self, error_handler: ErrorHandler, window_manager: GameWindowManager, image_processor: ImageProcessor):
         """初始化自动化操作器
         
         Args:

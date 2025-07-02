@@ -53,6 +53,7 @@ class ErrorCode(Enum):
     AUTO_SEQUENCE_ERROR = 9001
     AUTO_TIMING_ERROR = 9002
     AUTO_CONDITION_ERROR = 9003
+    AUTOMATION_ERROR = 9004
     
     # 模板相关错误 (10000-10999)
     TEMPLATE_ERROR = 10000
@@ -178,6 +179,7 @@ ERROR_TYPE_MAP = {
     ErrorCode.AUTO_SEQUENCE_ERROR: AutoControlError,
     ErrorCode.AUTO_TIMING_ERROR: AutoControlError,
     ErrorCode.AUTO_CONDITION_ERROR: AutoControlError,
+    ErrorCode.AUTOMATION_ERROR: AutoControlError,
     ErrorCode.TEMPLATE_ERROR: TemplateError,
     ErrorCode.TEMPLATE_MATCH_ERROR: TemplateError,
     ErrorCode.TEMPLATE_LOAD_ERROR: TemplateError,

@@ -25,11 +25,13 @@ def setup_logging():
 def check_dependencies():
     """检查依赖是否满足"""
     missing_deps = []
+    available_deps = {}
     
     # 检查PyQt6
     try:
         import PyQt6
         pyqt6_available = True
+        available_deps['PyQt6'] = PyQt6.__version__ if hasattr(PyQt6, '__version__') else 'unknown'
     except ImportError:
         pyqt6_available = False
     
@@ -37,6 +39,7 @@ def check_dependencies():
     try:
         import PySide6
         pyside6_available = True
+        available_deps['PySide6'] = PySide6.__version__ if hasattr(PySide6, '__version__') else 'unknown'
     except ImportError:
         pyside6_available = False
     
@@ -51,20 +54,132 @@ def check_dependencies():
         'psutil': 'psutil',
         'pyautogui': 'pyautogui',
         'pywin32': 'win32gui',  # Windows依赖
-        'loguru': 'loguru'
+        'loguru': 'loguru',
+        'Pillow': 'PIL'
     }
     
     for package_name, import_name in core_deps.items():
         try:
-            __import__(import_name)
+            module = __import__(import_name)
+            # 尝试获取版本信息
+            version = getattr(module, '__version__', 'unknown')
+            available_deps[package_name] = version
         except ImportError:
             missing_deps.append(package_name)
+    
+    # 检查AI相关依赖（可选）
+    ai_deps = {
+        'torch': 'torch',
+        'torchvision': 'torchvision'
+    }
+    
+    ai_missing = []
+    for package_name, import_name in ai_deps.items():
+        try:
+            module = __import__(import_name)
+            version = getattr(module, '__version__', 'unknown')
+            available_deps[package_name] = version
+        except ImportError:
+            ai_missing.append(package_name)
     
     return {
         'pyqt6': pyqt6_available,
         'pyside6': pyside6_available,
-        'missing': missing_deps
+        'missing': missing_deps,
+        'ai_missing': ai_missing,
+        'available': available_deps
     }
+
+def install_missing_dependencies(missing_deps: list) -> bool:
+    """自动安装缺失的依赖
+    
+    Args:
+        missing_deps: 缺失的依赖列表
+        
+    Returns:
+        bool: 是否安装成功
+    """
+    if not missing_deps:
+        return True
+    
+    import subprocess
+    
+    print("🔧 检测到缺失依赖，尝试自动安装...")
+    
+    for dep in missing_deps:
+        if dep == "PyQt6 或 PySide6":
+            # 优先尝试安装PyQt6
+            dep = "PyQt6"
+        
+        print(f"📦 安装 {dep}...")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", dep],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            print(f"✅ {dep} 安装成功")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ {dep} 安装失败: {e.stderr}")
+            return False
+        except Exception as e:
+            print(f"❌ 安装过程中发生错误: {e}")
+            return False
+    
+    print("🎉 所有依赖安装完成，重新验证...")
+    
+    # 重新验证依赖
+    new_deps = check_dependencies()
+    if new_deps['missing']:
+        print(f"⚠️  仍有未解决的依赖: {', '.join(new_deps['missing'])}")
+        return False
+    
+    return True
+
+def validate_dependency_compatibility() -> bool:
+    """验证依赖版本兼容性
+    
+    Returns:
+        bool: 依赖是否兼容
+    """
+    try:
+        # 检查numpy版本
+        import numpy as np
+        numpy_version = tuple(map(int, np.__version__.split('.')[:2]))
+        if numpy_version < (1, 20):
+            print(f"⚠️  NumPy版本过低: {np.__version__} (建议 >= 1.20.0)")
+            return False
+        
+        # 检查OpenCV版本
+        try:
+            import cv2
+            opencv_version = tuple(map(int, cv2.__version__.split('.')[:2]))
+            if opencv_version < (4, 5):
+                print(f"⚠️  OpenCV版本过低: {cv2.__version__} (建议 >= 4.5.0)")
+                return False
+        except ImportError:
+            pass
+        
+        # 检查PyQt6/PySide6版本
+        try:
+            import PyQt6
+            # PyQt6版本检查
+            pyqt6_version = getattr(PyQt6, '__version__', '0.0.0')
+            print(f"📱 PyQt6版本: {pyqt6_version}")
+        except ImportError:
+            try:
+                import PySide6
+                pyside6_version = getattr(PySide6, '__version__', '0.0.0')
+                print(f"📱 PySide6版本: {pyside6_version}")
+            except ImportError:
+                pass
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ 依赖兼容性检查失败: {e}")
+        return False
 
 def detect_display():
     """检测是否有显示器"""
@@ -217,11 +332,41 @@ def main():
         deps = check_dependencies()
         logger.info(f"依赖检查完成: PyQt6={deps['pyqt6']}, PySide6={deps['pyside6']}")
         
+        # 显示可用依赖信息
+        if deps['available']:
+            print("📦 已安装的依赖:")
+            for name, version in deps['available'].items():
+                print(f"  ✅ {name}: {version}")
+        
+        # 处理缺失的核心依赖
         if deps['missing']:
             logger.error(f"缺少依赖: {', '.join(deps['missing'])}")
-            print(f"❌ 缺少依赖: {', '.join(deps['missing'])}")
-            print("💡 请运行: pip install -r requirements.txt")
-            return 1
+            print(f"❌ 缺少核心依赖: {', '.join(deps['missing'])}")
+            
+            # 尝试自动安装
+            try:
+                if install_missing_dependencies(deps['missing']):
+                    print("✅ 依赖安装成功，继续启动")
+                else:
+                    print("❌ 依赖安装失败")
+                    print("💡 请手动运行: pip install -r requirements.txt")
+                    return 1
+            except Exception as e:
+                logger.error(f"自动安装依赖失败: {e}")
+                print("💡 请手动运行: pip install -r requirements.txt")
+                return 1
+        
+        # 处理AI依赖（可选）
+        if deps['ai_missing']:
+            print(f"⚠️  AI功能依赖缺失: {', '.join(deps['ai_missing'])}")
+            print("💡 如需AI功能，请安装: pip install torch torchvision")
+        
+        # 验证依赖兼容性
+        if not validate_dependency_compatibility():
+            logger.warning("依赖版本兼容性检查未通过，可能影响功能")
+            print("⚠️  某些依赖版本可能过低，建议更新")
+        else:
+            print("✅ 依赖兼容性检查通过")
         
         # 决定启动模式
         if args.cli:

@@ -147,17 +147,27 @@ class ImageProcessor(QObject):
             Optional[TemplateMatchResult]: 匹配结果
         """
         try:
+            # 验证输入图像
+            if not self.validate_image_data(image):
+                return None
+                
             if template_name not in self.templates:
                 return None
                 
             template = self.templates[template_name]
             
-            # 转换为灰度图
-            if len(image.shape) == 3:
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # 安全转换为灰度图
+            def _convert_to_gray(img):
+                if len(img.shape) == 3:
+                    return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                return img
+            
+            gray_image = self.safe_image_operation(_convert_to_gray, image)
+            if gray_image is None:
+                return None
                 
             # 模板匹配
-            result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+            result = cv2.matchTemplate(gray_image, template, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
             
             if max_val >= threshold:
@@ -172,7 +182,7 @@ class ImageProcessor(QObject):
         except Exception as e:
             self.error_handler.handle_error(
                 ImageProcessingError(
-                    ErrorCode.IMAGE_ERROR,
+                    ErrorCode.TEMPLATE_MATCH_ERROR,
                     "模板匹配失败",
                     ErrorContext(
                         error_info=str(e),
@@ -295,20 +305,26 @@ class ImageProcessor(QObject):
             包含图像特征的状态字典
         """
         try:
-            if frame is None:
-                self.logger.warning("分析的画面为空")
+            # 验证输入数据
+            if not self.validate_image_data(frame):
+                self.logger.warning("分析的画面数据无效")
                 return {}
             
             # 获取图像尺寸
             height, width = frame.shape[:2]
             
+            # 安全执行各项分析
+            dominant_colors = self.safe_image_operation(self._get_dominant_colors, frame)
+            brightness = self._calculate_brightness_safe(frame)
+            edges = self.safe_image_operation(self._detect_edges, frame)
+            
             # 创建基本状态字典
             state = {
                 "timestamp": self.get_current_timestamp(),
                 "frame_size": (width, height),
-                "dominant_colors": self._get_dominant_colors(frame),
-                "brightness": self._calculate_brightness(frame),
-                "edges": self._detect_edges(frame)
+                "dominant_colors": dominant_colors if dominant_colors is not None else [],
+                "brightness": brightness,
+                "edges": edges is not None
             }
             
             return state
@@ -316,7 +332,7 @@ class ImageProcessor(QObject):
         except Exception as e:
             self.error_handler.handle_error(
                 ImageProcessingError(
-                    ErrorCode.ANALYSIS_FAILED,
+                    ErrorCode.IMAGE_ANALYSIS_ERROR,
                     "分析游戏画面失败",
                     ErrorContext(
                         source="ImageProcessor.analyze_frame",
@@ -325,6 +341,32 @@ class ImageProcessor(QObject):
                 )
             )
             return {}
+    
+    def _calculate_brightness_safe(self, frame: np.ndarray) -> float:
+        """安全计算图像亮度
+        
+        Args:
+            frame: 输入图像
+            
+        Returns:
+            float: 亮度值，失败时返回0.0
+        """
+        try:
+            if not self.validate_image_data(frame):
+                return 0.0
+            
+            # 转换为灰度图
+            if frame.ndim == 3:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            else:
+                gray = frame
+                
+            # 计算平均亮度
+            return float(np.mean(gray))
+            
+        except Exception as e:
+            self.logger.error(f"安全计算亮度失败: {e}")
+            return 0.0
     
     def _get_dominant_colors(self, frame: np.ndarray, n_colors: int = 5) -> List[Tuple[int, int, int]]:
         """获取图像中主要颜色
@@ -420,27 +462,123 @@ class ImageProcessor(QObject):
             )
             return np.zeros_like(frame[:, :, 0])
     
+    def validate_image_data(self, data: Any) -> bool:
+        """验证图像数据的有效性
+        
+        Args:
+            data: 待验证的数据
+            
+        Returns:
+            bool: 数据是否有效
+        """
+        try:
+            # 检查是否为None
+            if data is None:
+                return False
+            
+            # 检查是否为布尔值（错误返回）
+            if isinstance(data, bool):
+                self.logger.warning(f"图像数据为布尔值: {data}")
+                return False
+            
+            # 检查是否为numpy数组
+            if not isinstance(data, np.ndarray):
+                self.logger.warning(f"图像数据类型错误: {type(data)}, 期望np.ndarray")
+                return False
+            
+            # 检查数组维度
+            if data.ndim not in [2, 3]:
+                self.logger.warning(f"图像数组维度错误: {data.ndim}, 期望2或3维")
+                return False
+            
+            # 检查数组大小
+            if data.size == 0:
+                self.logger.warning("图像数组为空")
+                return False
+            
+            # 检查图像尺寸合理性
+            if data.shape[0] < 1 or data.shape[1] < 1:
+                self.logger.warning(f"图像尺寸无效: {data.shape}")
+                return False
+            
+            # 如果是3维数组，检查通道数
+            if data.ndim == 3 and data.shape[2] not in [1, 3, 4]:
+                self.logger.warning(f"图像通道数错误: {data.shape[2]}, 期望1、3或4")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"验证图像数据时发生错误: {e}")
+            return False
+    
+    def safe_image_operation(self, operation: callable, *args) -> Optional[np.ndarray]:
+        """安全执行图像操作
+        
+        Args:
+            operation: 图像操作函数
+            *args: 操作参数
+            
+        Returns:
+            Optional[np.ndarray]: 处理结果，失败时返回None
+        """
+        try:
+            # 验证输入图像
+            if args and not self.validate_image_data(args[0]):
+                return None
+            
+            # 执行操作
+            result = operation(*args)
+            
+            # 验证输出结果
+            if not self.validate_image_data(result):
+                self.logger.warning("图像操作返回无效结果")
+                return None
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"安全图像操作失败: {e}")
+            return None
+    
     def process_image(self, image: np.ndarray) -> Optional[np.ndarray]:
         """处理图像"""
         try:
-            if image is None or not isinstance(image, np.ndarray):
+            # 使用验证方法检查输入
+            if not self.validate_image_data(image):
                 self.error_handler.handle_error(
                     ImageProcessingError(
-                        ErrorCode.INVALID_IMAGE,
+                        ErrorCode.IMAGE_PROCESSING_FAILED,
                         "无效的图像数据",
                         ErrorContext(
                             source="ImageProcessor.process_image",
-                            details="image is None or not numpy array"
+                            details="输入图像验证失败"
                         )
                     )
                 )
                 return None
                 
-            # 图像预处理
-            processed = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            processed = cv2.GaussianBlur(processed, (5, 5), 0)
+            # 使用安全操作进行图像预处理
+            def _process_operation(img):
+                processed = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                processed = cv2.GaussianBlur(processed, (5, 5), 0)
+                return processed
             
-            return processed
+            result = self.safe_image_operation(_process_operation, image)
+            
+            if result is None:
+                self.error_handler.handle_error(
+                    ImageProcessingError(
+                        ErrorCode.IMAGE_PROCESSING_FAILED,
+                        "图像处理操作失败",
+                        ErrorContext(
+                            source="ImageProcessor.process_image",
+                            details="安全图像操作返回None"
+                        )
+                    )
+                )
+            
+            return result
             
         except Exception as e:
             self.error_handler.handle_error(

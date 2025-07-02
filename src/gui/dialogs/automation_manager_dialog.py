@@ -2,10 +2,10 @@
 自动化管理对话框
 """
 from typing import Optional, List, Dict
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                            QPushButton, QListWidget, QListWidgetItem, QSpinBox,
-                           QLineEdit, QGroupBox, QMessageBox, QComboBox)
-from PyQt5.QtCore import Qt, pyqtSignal
+                           QLineEdit, QGroupBox, QMessageBox, QComboBox, QWidget)
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from services.automation.auto_controller import AutoController, Action
 from services.vision.state_recognizer import StateRecognizer
@@ -325,7 +325,7 @@ class AutomationManagerDialog(QDialog):
             self._load_actions()
             
             # 选择新添加的动作
-            items = self.action_list.findItems(action_name, Qt.MatchExactly)
+            items = self.action_list.findItems(action_name, Qt.MatchFlag.MatchExactly)
             if items:
                 self.action_list.setCurrentItem(items[0])
                 
@@ -375,7 +375,7 @@ class AutomationManagerDialog(QDialog):
                 self._load_actions()
                 
                 # 选择编辑后的动作
-                items = self.action_list.findItems(action.name, Qt.MatchExactly)
+                items = self.action_list.findItems(action.name, Qt.MatchFlag.MatchExactly)
                 if items:
                     self.action_list.setCurrentItem(items[0])
                     
@@ -403,11 +403,11 @@ class AutomationManagerDialog(QDialog):
                 self,
                 "确认删除",
                 f"确定要删除动作 {item.text()} 吗？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
             )
             
-            if reply == QMessageBox.Yes:
+            if reply == QMessageBox.StandardButton.Yes:
                 # 删除动作
                 action_name = item.text()
                 self.auto_controller.actions = [
