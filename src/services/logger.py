@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from .config import Config
 from .exceptions import GameAutomationError
+from src.common.singleton import Singleton
 
 class ErrorDeduplicator:
     """错误去重器"""
@@ -91,8 +92,8 @@ class ErrorDeduplicator:
         with self._lock:
             return {key: info['count'] for key, info in self._error_cache.items()}
 
-class GameLogger:
-    """游戏自动化日志类"""
+class GameLogger(Singleton):
+    """游戏自动化日志类 - 单例模式"""
     
     def __init__(self, config: Config, name: str = 'game_automation'):
         """
@@ -102,6 +103,10 @@ class GameLogger:
             config: 配置对象
             name: 日志器名称
         """
+        # 避免重复初始化（单例模式）
+        if hasattr(self, '_initialized'):
+            return
+            
         self.config = config
         self.logger = logging.getLogger(name)
         self.logger.setLevel(getattr(logging, config.logging.log_level))
@@ -173,6 +178,7 @@ class GameLogger:
         self._stats_lock = threading.Lock()
         
         self.logger.info("日志服务初始化完成")
+        self._initialized = True
     
     def _log_with_recursion_guard(self, level_method, message, *args, **kwargs):
         """带递归保护的日志记录"""

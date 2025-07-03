@@ -35,6 +35,13 @@ except ImportError:
 
 from src.common.system_cleanup import cleanup
 
+# 单例模式支持
+from src.common.singleton import (
+    SingletonMeta,
+    Singleton,
+    singleton
+)
+
 __all__ = [
     # 系统初始化
     'check_dependencies',
@@ -53,5 +60,10 @@ __all__ = [
     'setup_environment',
     
     # 系统清理
-    'cleanup'
+    'cleanup',
+    
+    # 单例模式
+    'SingletonMeta',
+    'Singleton',
+    'singleton'
 ] 

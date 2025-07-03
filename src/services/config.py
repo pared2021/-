@@ -155,7 +155,7 @@ class GameStateConfig:
 
 @dataclass
 class Config:
-    """总配置"""
+    """总配置 - 单例模式"""
     window: WindowConfig = field(default_factory=WindowConfig)
     yolo: YOLOConfig = field(default_factory=YOLOConfig)
     image_processor: ImageProcessorConfig = field(default_factory=ImageProcessorConfig)
@@ -366,6 +366,20 @@ class Config:
         except Exception as e:
             print(f"保存配置失败: {str(e)}")
             return False
+
+# 动态应用单例模式，避免循环导入
+def _apply_singleton_to_config():
+    """为Config类动态应用单例模式"""
+    try:
+        from src.common.singleton import singleton
+        global Config
+        Config = singleton(Config)
+    except ImportError:
+        # 如果无法导入单例模式，使用普通类
+        pass
+
+# 应用单例模式
+_apply_singleton_to_config()
 
 # 导出Config类
 __all__ = ['Config']

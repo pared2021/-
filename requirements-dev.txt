@@ -7,23 +7,61 @@ isort>=5.13.2
 ruff>=0.3.0
 mypy>=1.8.0
 pre-commit>=3.6.0
+flake8>=7.0.0
+pylint>=3.0.0
+
+# 安全扫描
+bandit[toml]>=1.7.5
+safety>=3.0.0
 
 # 测试工具
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-cov>=4.1.0
 pytest-mock>=3.12.0
+pytest-benchmark>=4.0.0
+pytest-timeout>=2.1.0
+pytest-xvfb>=3.0.0  # Linux GUI测试
+pytest-qt>=4.2.0    # Qt测试支持
+pytest-html>=4.0.0  # HTML报告
 httpx>=0.27.0
+
+# 性能分析
+memory-profiler>=0.61.0
+line-profiler>=4.1.0
+py-spy>=0.3.0
+psutil>=5.9.0
 
 # 开发工具
 ipython>=8.20.0
 jupyter>=1.0.0
 rich>=13.7.0
+ipdb>=0.13.13
+
+# 构建工具
+build>=1.0.0
+wheel>=0.42.0
+setuptools>=69.0.0
+twine>=4.0.0
 
 # 文档工具
 mkdocs>=1.5.0
 mkdocs-material>=9.5.0
+sphinx>=7.0.0
+sphinx-rtd-theme>=2.0.0
+
+# 类型检查增强
+types-requests>=2.31.0
+types-Pillow>=10.0.0
+types-psutil>=5.9.0
 
 # 监控和调试
 debugpy>=1.8.0
-memory-profiler>=0.61.0 
+
+# 测试环境管理
+tox>=4.11.0
+coverage[toml]>=7.4.0
+
+# 测试数据生成
+factory-boy>=3.3.0
+faker>=21.0.0 
