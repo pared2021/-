@@ -15,10 +15,10 @@ from ctypes import windll
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from src.core.game_adapter import GameAdapter, GameWindow, GameState
-from src.core.unified_game_analyzer import UnifiedGameAnalyzer as GameAnalyzer
-from src.services.error_handler import ErrorHandler
-from src.core.task_system import Task, TaskPriority
+from ...core.game_adapter import GameAdapter, GameWindow, GameState
+from ...core.unified_game_analyzer import UnifiedGameAnalyzer as GameAnalyzer
+from ...services.error_handler import ErrorHandler
+from ...core.task_system import Task, TaskPriority
 
 
 class GenshinScene(Enum):

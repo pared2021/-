@@ -5,7 +5,7 @@ import numpy as np
 import time
 from .game_analyzer import GameAnalyzer
 from .logger import GameLogger
-from src.common.error_types import ErrorCode, StateError, ErrorContext
+from ..common.error_types import ErrorCode, StateError, ErrorContext
 import json
 import os
 
@@ -286,4 +286,4 @@ class StateManager:
         if self.current_state.next_states:
             next_state_name = self.current_state.next_states[0]
             return self.states.get(next_state_name)
-        return None 
+        return None

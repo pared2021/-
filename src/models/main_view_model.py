@@ -1,15 +1,15 @@
 from typing import Dict, Any, Optional
 from PyQt6.QtCore import QObject, pyqtSignal
 import numpy as np
-from src.services.config import Config
-from src.services.logger import GameLogger
-from src.services.window_manager import GameWindowManager
-from src.services.game_analyzer import GameAnalyzer
-from src.services.dqn_agent import DQNAgent
-from src.services.image_processor import ImageProcessor
-from src.services.action_simulator import ActionSimulator
-from src.services.template_collector import TemplateCollector
-from src.services.game_state import GameState
+from ..services.config import Config
+from ..services.logger import GameLogger
+from ..services.window_manager import GameWindowManager
+from ..services.game_analyzer import GameAnalyzer
+from ..services.dqn_agent import DQNAgent
+from ..services.image_processor import ImageProcessor
+from ..services.action_simulator import ActionSimulator
+from ..services.template_collector import TemplateCollector
+from ..core.types import UnifiedGameState as GameState
 
 class MainViewModel(QObject):
     """主视图模型"""
@@ -121,4 +121,4 @@ class MainViewModel(QObject):
     @property
     def current_window(self) -> Optional[int]:
         """当前窗口句柄"""
-        return self._current_window 
+        return self._current_window

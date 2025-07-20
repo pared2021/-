@@ -9,8 +9,8 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 from services.automation.auto_controller import AutoController, Action
 from services.vision.state_recognizer import StateRecognizer
-from src.services.error_handler import ErrorHandler
-from src.common.error_types import ErrorCode, ErrorContext
+from ...services.error_handler import ErrorHandler
+from ...common.error_types import ErrorCode, ErrorContext
 
 class AutomationManagerDialog(QDialog):
     """自动化管理对话框"""
@@ -207,14 +207,16 @@ class AutomationManagerDialog(QDialog):
                 self.state_combo.addItem(state_name)
                 
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "加载动作列表失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="AutomationManagerDialog._load_actions"
+                    source="AutomationManagerDialog._load_actions",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_action_selected(self, item: QListWidgetItem):
         """动作选择处理
@@ -250,14 +252,16 @@ class AutomationManagerDialog(QDialog):
                         self.state_combo.setCurrentIndex(index)
                         
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "选择动作失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="AutomationManagerDialog._on_action_selected"
+                    source="AutomationManagerDialog._on_action_selected",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_type_changed(self, action_type: str):
         """动作类型改变处理
@@ -330,14 +334,16 @@ class AutomationManagerDialog(QDialog):
                 self.action_list.setCurrentItem(items[0])
                 
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "添加动作失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="AutomationManagerDialog._on_add_action"
+                    source="AutomationManagerDialog._on_add_action",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_edit_action(self):
         """编辑动作处理"""
@@ -380,14 +386,16 @@ class AutomationManagerDialog(QDialog):
                     self.action_list.setCurrentItem(items[0])
                     
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "编辑动作失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="AutomationManagerDialog._on_edit_action"
+                    source="AutomationManagerDialog._on_edit_action",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_delete_action(self):
         """删除动作处理"""
@@ -430,14 +438,16 @@ class AutomationManagerDialog(QDialog):
                 self.state_combo.setCurrentIndex(0)
                 
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "删除动作失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="AutomationManagerDialog._on_delete_action"
+                    source="AutomationManagerDialog._on_delete_action",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_save_action(self):
         """保存动作处理"""
@@ -455,11 +465,13 @@ class AutomationManagerDialog(QDialog):
             self.accept()
             
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "保存动作失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="AutomationManagerDialog._on_save_action"
+                    source="AutomationManagerDialog._on_save_action",
+                    details={"error_info": str(e)}
                 )
-            ) 
+            )
+            self.error_handler.handle_error(error)

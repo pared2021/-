@@ -5,8 +5,8 @@ import shutil
 import logging
 from tempfile import mkdtemp
 from unittest.mock import patch, MagicMock
-from src.services.logger import GameLogger
-from src.services.config import Config
+from ....src.services.logger import GameLogger
+from ....src.services.config import Config
 
 class TestGameLogger(unittest.TestCase):
     """测试游戏日志类"""
@@ -135,4 +135,4 @@ class TestGameLogger(unittest.TestCase):
                 self.assertEqual(mock_remove.call_count, 2)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

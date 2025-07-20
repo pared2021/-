@@ -2,10 +2,15 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+exclude = ["tests*"]
+
 [project]
 name = "game-automation"
-version = "1.0.0"
-description = "智能游戏自动化工具"
+version = "3.0.0"
+description = "基于Clean Architecture的智能游戏自动化工具，集成dependency-injector依赖注入框架"
 authors = [
     {name = "Game Automation Team", email = "team@example.com"}
 ]
@@ -21,6 +26,94 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    # 桌面自动化核心
+    "opencv-python>=4.9.0",
+    "opencv-contrib-python>=4.9.0",
+    "numpy>=1.26.0",
+    "pillow>=10.2.0",
+    "scikit-image>=0.22.0",
+    "easyocr>=1.7.0",
+    
+    # 系统自动化控制
+    "pyautogui>=0.9.54",
+    "pygetwindow>=0.0.9",
+    "pynput>=1.7.6",
+    "psutil>=5.9.5",
+    "mss>=9.0.1",
+    "keyboard>=0.13.5",
+    "mouse>=0.7.1",
+    
+    # GUI框架
+    "pyqt6>=6.6.0",
+    "pyqtgraph>=0.13.3",
+    
+    # 工具库
+    "rich>=13.7.0",
+    "tqdm>=4.66.1",
+    "pyyaml>=6.0.1",
+    "click>=8.1.7",
+    "loguru>=0.7.2",
+    "dependency-injector>=4.41.0",
+    "jedi>=0.19.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "yapf>=0.40.0",
+    
+    # Web框架和HTTP客户端
+    "fastapi>=0.109.0",
+    "httpx>=0.26.0",
+    "pydantic>=2.5.0",
+    "uvicorn[standard]>=0.27.0",
+    
+    # AI/ML库
+    "torch>=2.1.0",
+    "torchvision>=0.16.0",
+    "transformers>=4.37.0",
+    
+    # Windows特定依赖
+    "pywin32>=306; sys_platform == 'win32'",
+    
+    # GPU监控
+    "GPUtil>=1.4.0",
+]
+
+# 项目脚本
+[project.scripts]
+game-automation = "src.main:main"
+qa-check = "tools.quality.analyzer:main"
+qa-simple = "tools.quality.simple_check:main"
+
+# 可选依赖组
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "bandit>=1.7.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.10.0",
+]
+lint = [
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "bandit>=1.7.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocstrings[python]>=0.20.0",
 ]
 
 # 安全扫描配置

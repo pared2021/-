@@ -5,11 +5,11 @@ import os
 import json
 from typing import Dict, List, Optional
 from dataclasses import dataclass
-from src.services.config import Config as ConfigManager
+from ...services.config import Config as ConfigManager
 from ..utils.cmd_recorder import CommandRecorder
 
 # 使用统一的Action体系
-from src.common.action_system import (
+from ...common.action_system import (
     ActionType, BattleAction, ActionSequence, ActionFactory, BaseAction
 )
 

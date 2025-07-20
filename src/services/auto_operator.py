@@ -2,19 +2,19 @@ from typing import Dict, Any, List, Optional, Tuple, Callable
 import time
 import random
 import numpy as np
-from src.services.logger import GameLogger
-from src.services.action_simulator import ActionSimulator
-from src.services.game_state import GameState
-from src.services.image_processor import ImageProcessor
-from src.services.config import Config
+from .logger import GameLogger
+from .action_simulator import ActionSimulator
+from ..core.types import UnifiedGameState as GameState
+from .image_processor import ImageProcessor
+from ..core.types import UnifiedTemplateMatchResult as TemplateMatchResult
+from .config import Config
 from dataclasses import dataclass
-from src.common.error_types import ErrorCode, AutomationError, ErrorContext
-from src.services.error_handler import ErrorHandler
-from src.services.window_manager import GameWindowManager
-from src.services.image_processor import ImageProcessor, TemplateMatchResult
+from ..common.error_types import ErrorCode, AutomationError, ErrorContext
+from .error_handler import ErrorHandler
+from .window_manager import GameWindowManager
 
 # 使用统一的Action体系
-from src.common.action_system import (
+from ..common.action_system import (
     ActionType, AutomationAction, ActionSequence, ActionFactory, BaseAction
 )
 
@@ -358,4 +358,4 @@ class AutoOperator:
             bool: 是否成功
         """
         # 委托给原有的执行方法
-        return self._execute_action(action) 
+        return self._execute_action(action)

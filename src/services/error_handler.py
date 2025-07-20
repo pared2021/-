@@ -2,7 +2,7 @@ import time
 import traceback
 from typing import Dict, Any, Optional, Callable, List
 from threading import Lock
-from src.common.error_types import (
+from ..common.error_types import (
     GameAutomationError,
     ErrorCode,
     ErrorContext,
@@ -13,7 +13,7 @@ from src.common.error_types import (
     StateError,
     ModelError
 )
-from src.services.logger import GameLogger
+from .logger import GameLogger
 import numpy as np
 import psutil
 import os
@@ -618,7 +618,7 @@ class ErrorHandler:
                         pass
                         
                 # 创建新的窗口管理器
-                from src.services.window_manager import GameWindowManager
+                from .window_manager import GameWindowManager
                 if self.config:
                     self.window_manager = GameWindowManager(self.logger, self.config)
                     
@@ -679,7 +679,7 @@ class ErrorHandler:
                     time.sleep(1.0)  # 等待较长时间确保资源释放
                     
                     # 重新创建捕获引擎
-                    from src.services.capture_engines import GameCaptureEngine
+                    from .capture_engines import GameCaptureEngine
                     self.window_manager.capture_engine = GameCaptureEngine(self.logger)
                     time.sleep(0.5)
                     
@@ -803,7 +803,7 @@ class ErrorHandler:
                 time.sleep(0.5)  # 等待资源释放
                 
                 # 重新初始化捕获引擎
-                from src.services.capture_engines import GameCaptureEngine
+                from .capture_engines import GameCaptureEngine
                 self.window_manager.capture_engine = GameCaptureEngine(self.logger)
                 self.logger.info("重新初始化捕获引擎完成")
         except Exception as e:
@@ -955,4 +955,4 @@ class ErrorHandler:
             self.error_stats.clear()
             self.recovery_stats.clear()
             self.consecutive_errors = 0
-            self.recovery_attempts = 0 
+            self.recovery_attempts = 0

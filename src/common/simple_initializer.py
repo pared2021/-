@@ -3,8 +3,8 @@
 提供快速、简单的系统初始化功能
 """
 from typing import Optional, Dict, Any
-from src.common.containers import EnhancedContainer
-from src.common.singleton import Singleton
+from .containers import EnhancedContainer
+from .singleton import Singleton
 import time
 
 class SimpleInitializer(Singleton):
@@ -255,4 +255,4 @@ __all__ = [
     'one_line_init',
     'get_system_performance',
     'is_system_performance_ok'
-] 
+]

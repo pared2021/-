@@ -9,8 +9,8 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 
 from services.vision.state_recognizer import StateRecognizer, GameState
-from src.services.error_handler import ErrorHandler
-from src.common.error_types import ErrorCode, ErrorContext
+from ...services.error_handler import ErrorHandler
+from ...common.error_types import ErrorCode, ErrorContext
 
 class TemplateManagerDialog(QDialog):
     """状态模板管理对话框"""
@@ -123,14 +123,16 @@ class TemplateManagerDialog(QDialog):
                 self.template_list.addItem(item)
                 
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "加载模板列表失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="TemplateManagerDialog._load_templates"
+                    source="TemplateManagerDialog._load_templates",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_template_selected(self, item: QListWidgetItem):
         """模板选择处理
@@ -169,14 +171,16 @@ class TemplateManagerDialog(QDialog):
                 self.threshold_spin.setValue(int(state.confidence * 100))
                 
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "选择模板失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="TemplateManagerDialog._on_template_selected"
+                    source="TemplateManagerDialog._on_template_selected",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_add_template(self):
         """添加模板处理"""
@@ -220,14 +224,16 @@ class TemplateManagerDialog(QDialog):
                     self.template_list.setCurrentItem(items[0])
                     
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "添加模板失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="TemplateManagerDialog._on_add_template"
+                    source="TemplateManagerDialog._on_add_template",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_edit_template(self):
         """编辑模板处理"""
@@ -261,14 +267,16 @@ class TemplateManagerDialog(QDialog):
                 self._on_template_selected(item)
                 
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "编辑模板失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="TemplateManagerDialog._on_edit_template"
+                    source="TemplateManagerDialog._on_edit_template",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_delete_template(self):
         """删除模板处理"""
@@ -306,14 +314,16 @@ class TemplateManagerDialog(QDialog):
                 self.threshold_spin.setValue(80)
                 
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "删除模板失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="TemplateManagerDialog._on_delete_template"
+                    source="TemplateManagerDialog._on_delete_template",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_save_template(self):
         """保存模板处理"""
@@ -334,11 +344,13 @@ class TemplateManagerDialog(QDialog):
             self.accept()
             
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.UI_ERROR,
                 "保存模板失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="TemplateManagerDialog._on_save_template"
+                    source="TemplateManagerDialog._on_save_template",
+                    details={"error_info": str(e)}
                 )
-            ) 
+            )
+            self.error_handler.handle_error(error)

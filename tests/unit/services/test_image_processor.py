@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch, mock_open
 # 添加项目根目录到系统路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from src.services.image_processor import ImageProcessor
-from src.services.logger import GameLogger
-from src.services.config import Config
+from ....src.services.image_processor import ImageProcessor
+from ....src.services.logger import GameLogger
+from ....src.services.config import Config
 
 class TestImageProcessor(unittest.TestCase):
     """图像处理器测试类"""
@@ -155,4 +155,4 @@ class TestImageProcessor(unittest.TestCase):
         self.assertAlmostEqual(black_brightness, 0.0, delta=1.0)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

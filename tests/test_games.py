@@ -5,8 +5,8 @@ import pytest
 from unittest.mock import Mock, patch
 import json
 from pathlib import Path
-from src.core.task_system import Task, TaskStatus
-from src.games.game_base import GameBase
+from ..src.core.task_system import Task, TaskStatus
+from ..src.games.game_base import GameBase
 
 
 class TestGame(GameBase):

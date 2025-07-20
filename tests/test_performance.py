@@ -4,8 +4,8 @@
 import pytest
 from unittest.mock import Mock, patch
 import time
-from src.performance.performance_monitor import PerformanceMonitor
-from src.performance.performance_view import PerformanceView
+from ..src.performance.performance_monitor import PerformanceMonitor
+from ..src.performance.performance_view import PerformanceView
 
 
 @pytest.fixture

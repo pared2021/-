@@ -12,14 +12,14 @@ import queue
 # 添加项目根目录到系统路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from src.services.window_manager import GameWindowManager
-from src.services.image_processor import ImageProcessor
-from src.services.game_analyzer import GameAnalyzer
-from src.services.action_simulator import ActionSimulator
-from src.services.auto_operator import AutoOperator, ActionType
-from src.services.game_state import GameState
-from src.services.logger import GameLogger
-from src.services.config import Config
+from ...src.services.window_manager import GameWindowManager
+from ...src.services.image_processor import ImageProcessor
+from ...src.services.game_analyzer import GameAnalyzer
+from ...src.services.action_simulator import ActionSimulator
+from ...src.services.auto_operator import AutoOperator, ActionType
+from ...src.services.game_state import GameState
+from ...src.services.logger import GameLogger
+from ...src.services.config import Config
 
 class PerformanceTests(unittest.TestCase):
     """性能测试类"""
@@ -387,4 +387,4 @@ class PerformanceTests(unittest.TestCase):
         self.assertLessEqual(avg_per_action, 0.05, f"窗口激活+点击耗时过长: {avg_per_action*1000:.2f}ms > 50ms")
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

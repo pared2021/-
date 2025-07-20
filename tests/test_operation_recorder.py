@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock, mock_open
 import json
 import time
-from src.operation_recorder import OperationRecorder
+from ..src.operation_recorder import OperationRecorder
 
 
 @pytest.fixture

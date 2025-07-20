@@ -6,8 +6,8 @@ from typing import Optional, List, Dict, Tuple
 import cv2
 import numpy as np
 from dataclasses import dataclass
-from src.services.error_handler import ErrorHandler
-from src.common.error_types import ErrorCode, ErrorContext
+from ..error_handler import ErrorHandler
+from ...common.error_types import ErrorCode, ErrorContext
 from .template_matcher import TemplateMatcher, MatchResult
 import os
 
@@ -213,4 +213,4 @@ class StateRecognizer:
                     error_location="StateRecognizer.save_debug_image"
                 )
             )
-            return False 
+            return False

@@ -10,14 +10,14 @@ import copy
 # 添加项目根目录到系统路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from src.services.window_manager import GameWindowManager
-from src.services.image_processor import ImageProcessor
-from src.services.game_analyzer import GameAnalyzer
-from src.services.action_simulator import ActionSimulator
-from src.services.auto_operator import AutoOperator, ActionType
-from src.services.game_state import GameState
-from src.services.logger import GameLogger
-from src.services.config import Config
+from ...src.services.window_manager import GameWindowManager
+from ...src.services.image_processor import ImageProcessor
+from ...src.services.game_analyzer import GameAnalyzer
+from ...src.services.action_simulator import ActionSimulator
+from ...src.services.auto_operator import AutoOperator, ActionType
+from ...src.services.game_state import GameState
+from ...src.services.logger import GameLogger
+from ...src.services.config import Config
 
 class TestGameAutomationFlow(unittest.TestCase):
     """测试游戏自动化流程的集成测试类"""
@@ -65,11 +65,11 @@ class TestGameAutomationFlow(unittest.TestCase):
         }
         
         # 应用模块补丁
-        self.window_manager_patcher = patch('src.services.window_manager.GameWindowManager', autospec=True)
-        self.image_processor_patcher = patch('src.services.image_processor.ImageProcessor', autospec=True)
-        self.game_analyzer_patcher = patch('src.services.game_analyzer.GameAnalyzer', autospec=True)
-        self.action_simulator_patcher = patch('src.services.action_simulator.ActionSimulator', autospec=True)
-        self.game_state_patcher = patch('src.services.game_state.GameState', autospec=True)
+        self.window_manager_patcher = patch('tests.integration.test_game_automation_flow.GameWindowManager', autospec=True)
+        self.image_processor_patcher = patch('tests.integration.test_game_automation_flow.ImageProcessor', autospec=True)
+        self.game_analyzer_patcher = patch('tests.integration.test_game_automation_flow.GameAnalyzer', autospec=True)
+        self.action_simulator_patcher = patch('tests.integration.test_game_automation_flow.ActionSimulator', autospec=True)
+        self.game_state_patcher = patch('tests.integration.test_game_automation_flow.GameState', autospec=True)
         
         # 启动补丁
         self.mock_window_manager = self.window_manager_patcher.start()
@@ -306,4 +306,4 @@ class TestGameAutomationFlow(unittest.TestCase):
         self.action_simulator.click.assert_called_once_with(150, 125)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

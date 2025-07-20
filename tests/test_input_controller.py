@@ -1,7 +1,7 @@
 """InputController 单元测试"""
 import pytest
 from unittest.mock import patch, MagicMock
-from src.input_controller import InputController
+from ..src.input_controller import InputController
 
 
 @pytest.fixture

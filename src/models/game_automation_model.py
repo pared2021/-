@@ -1,16 +1,16 @@
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 import cv2
 import numpy as np
-from src.services.window_manager import GameWindowManager
-from src.services.image_processor import ImageProcessor
-from src.services.action_simulator import ActionSimulator
-from src.services.game_state import GameState
-from src.services.game_analyzer import GameAnalyzer
-from src.services.auto_operator import AutoOperator
-from src.services.logger import GameLogger
-from src.services.config import Config
+from ..services.window_manager import GameWindowManager
+from ..services.image_processor import ImageProcessor
+from ..services.action_simulator import ActionSimulator
+from ..core.types import UnifiedGameState as GameState
+from ..services.game_analyzer import GameAnalyzer
+from ..services.auto_operator import AutoOperator
+from ..services.logger import GameLogger
+from ..services.config import Config
 import time
-from src.services.error_handler import ErrorHandler
+from ..services.error_handler import ErrorHandler
 
 class AutomationThread(QThread):
     """自动化线程"""
@@ -70,10 +70,10 @@ class AutomationThread(QThread):
                             self.logger.warning("连续无法激活窗口，尝试恢复")
                             
                             # 创建窗口状态错误并尝试恢复
-                            from src.common.exceptions import WindowError
+                            from ..common.exceptions import WindowError
                             error = WindowError("无法激活窗口", 1003)  # 窗口状态错误码
                             # 创建错误上下文并处理错误
-                            from src.common.error_types import ErrorContext
+                            from ..common.error_types import ErrorContext
                             error.context = ErrorContext(
                                 source="AutomationThread.run",
                                 details="窗口无法激活"
@@ -173,7 +173,7 @@ class AutomationThread(QThread):
                 
                 # 根据错误类型尝试恢复
                 error_msg = str(e).lower()
-                from src.common.exceptions import WindowError, ImageProcessingError, ActionError
+                from ..common.exceptions import WindowError, ImageProcessingError, ActionError
                 
                 if "window" in error_msg or "窗口" in error_msg or "handle" in error_msg:
                     error = WindowError(f"窗口操作异常: {str(e)}", 1000)
@@ -195,7 +195,7 @@ class AutomationThread(QThread):
         self.logger.warning("连续捕获失败，尝试恢复")
         
         # 创建窗口捕获错误并尝试恢复
-        from src.common.exceptions import WindowError
+        from ..common.exceptions import WindowError
         error = WindowError("连续窗口捕获失败", 1002)  # 窗口捕获错误码
         
         # 尝试恢复
@@ -215,7 +215,7 @@ class AutomationThread(QThread):
         self.logger.warning("连续图像处理失败，尝试恢复")
         
         # 创建图像处理错误并尝试恢复
-        from src.common.exceptions import ImageProcessingError
+        from ..common.exceptions import ImageProcessingError
         error = ImageProcessingError("连续图像处理失败", 2000)
         
         # 尝试恢复
@@ -230,7 +230,7 @@ class AutomationThread(QThread):
         self.logger.warning("连续动作执行失败，尝试恢复")
         
         # 创建动作执行错误并尝试恢复
-        from src.common.exceptions import ActionError
+        from ..common.exceptions import ActionError
         error = ActionError("连续动作执行失败", 3000)
         
         # 尝试恢复
@@ -431,7 +431,7 @@ class GameAutomationModel(QObject):
                     self.logger.warning("连续捕获失败，尝试自动恢复")
                     
                     # 创建窗口捕获错误并尝试恢复
-                    from src.common.exceptions import WindowError
+                    from ..common.exceptions import WindowError
                     error = WindowError("连续多次窗口捕获失败", 1002)  # 窗口捕获错误码
                     
                     # 尝试恢复
@@ -497,7 +497,7 @@ class GameAutomationModel(QObject):
                 self.logger.warning("捕获窗口时发生多次异常，尝试自动恢复")
                 
                 # 创建窗口错误并尝试恢复
-                from src.common.exceptions import WindowError
+                from ..common.exceptions import WindowError
                 error = WindowError(f"捕获窗口时发生异常: {str(e)}", 1000)
                 
                 # 尝试恢复
@@ -535,4 +535,4 @@ class GameAutomationModel(QObject):
             self.logger.error(f"分析游戏状态失败: {str(e)}")
             import traceback
             self.logger.error(traceback.format_exc())
-            return None 
+            return None

@@ -11,9 +11,9 @@ from typing import Dict, List, Tuple, Optional, Any
 from PyQt6.QtCore import QObject, pyqtSignal
 from .config import Config
 from .logger import GameLogger
-from src.common.error_types import ErrorCode, ImageProcessingError, ErrorContext
+from ..common.error_types import ErrorCode, ImageProcessingError, ErrorContext
 from dataclasses import dataclass
-from src.services.error_handler import ErrorHandler
+from .error_handler import ErrorHandler
 
 @dataclass
 class TemplateMatchResult:
@@ -827,4 +827,4 @@ class ImageProcessor(QObject):
                     )
                 )
             )
-            return None 
+            return None

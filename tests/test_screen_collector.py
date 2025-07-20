@@ -5,8 +5,8 @@ import numpy as np
 from unittest.mock import MagicMock, patch
 from PIL import Image
 
-from src.collector.screen_collector import ScreenCollector
-from src.utils.image_recognition import ImageRecognition
+from ..src.collector.screen_collector import ScreenCollector
+from ..src.utils.image_recognition import ImageRecognition
 
 
 class TestScreenCollector:

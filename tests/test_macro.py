@@ -3,9 +3,9 @@
 """
 import pytest
 from unittest.mock import Mock, patch
-from src.macro.macro_recorder import MacroRecorder
-from src.macro.macro_player import MacroPlayer
-from src.macro.macro_editor import MacroEditor
+from ..src.macro.macro_recorder import MacroRecorder
+from ..src.macro.macro_player import MacroPlayer
+from ..src.macro.macro_editor import MacroEditor
 
 
 @pytest.fixture

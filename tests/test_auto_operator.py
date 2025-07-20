@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from src.services.auto_operator import AutoOperator
-from src.models.game_state import GameState
-from src.services.action_simulator import ActionSimulator
+from ..src.services.auto_operator import AutoOperator
+from ..src.models.game_state import GameState
+from ..src.services.action_simulator import ActionSimulator
 
 def test_window_refresh():
     """测试窗口刷新功能"""
@@ -44,4 +44,4 @@ def test_window_state_handling():
     game_state.is_window_valid.return_value = True
     game_state.reset_mock()
     action = operator.get_next_action()
-    game_state.refresh_windows.assert_not_called()  # 不应该调用刷新 
+    game_state.refresh_windows.assert_not_called()  # 不应该调用刷新

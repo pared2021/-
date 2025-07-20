@@ -1,13 +1,11 @@
-from src.services.logger import GameLogger
-from src.services.config import Config
-from src.services.window_manager import GameWindowManager
-from src.services.image_processor import ImageProcessor
-from src.services.game_analyzer import GameAnalyzer
-from src.services.action_simulator import ActionSimulator
-from src.services.game_state import GameState
-from src.services.auto_operator import AutoOperator
-from src.services.config import Config as ConfigManager
-from src.services.error_handler import ErrorHandler
+from ..services.logger import GameLogger
+from ..services.config import config  # 使用统一配置系统单例
+from ..services.window_manager import GameWindowManager
+from ..services.image_processor import ImageProcessor
+from ..services.game_analyzer import GameAnalyzer
+from ..services.action_simulator import ActionSimulator
+from ..core.types import UnifiedGameState as GameState
+from ..services.error_handler import ErrorHandler
 import os
 
 class EnhancedContainer:
@@ -48,15 +46,14 @@ class EnhancedContainer:
     
     def _create_core_services(self):
         """创建核心服务（无依赖）"""
-        # 配置服务
+        # 配置服务（使用统一配置系统单例）
         if 'config' not in self._instances:
-            config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'settings.json')
-            self._instances['config'] = Config(config_path)
+            self._instances['config'] = config
             self._service_creation_order.append('config')
             
         # 日志服务
         if 'logger' not in self._instances:
-            self._instances['logger'] = GameLogger()
+            self._instances['logger'] = GameLogger(config, "Container")
             self._service_creation_order.append('logger')
     
     def _create_basic_services(self):
@@ -72,8 +69,8 @@ class EnhancedContainer:
         if 'window_manager' not in self._instances:
             self._instances['window_manager'] = GameWindowManager(
                 self._instances['logger'],
-                self._instances['config']
-                # 暂不注入error_handler
+                self._instances['config'],
+                self._instances['error_handler']
             )
             self._service_creation_order.append('window_manager')
         
@@ -82,7 +79,7 @@ class EnhancedContainer:
             self._instances['image_processor'] = ImageProcessor(
                 self._instances['logger'],
                 self._instances['config'],
-                # 暂不注入error_handler
+                self._instances['error_handler']
             )
             self._service_creation_order.append('image_processor')
         
@@ -91,8 +88,8 @@ class EnhancedContainer:
             self._instances['action_simulator'] = ActionSimulator(
                 self._instances['logger'],
                 self._instances['window_manager'],
-                self._instances['config']
-                # 暂不注入error_handler
+                self._instances['config'],
+                self._instances['error_handler']
             )
             self._service_creation_order.append('action_simulator')
         
@@ -101,8 +98,8 @@ class EnhancedContainer:
             self._instances['game_analyzer'] = GameAnalyzer(
                 self._instances['logger'],
                 self._instances['image_processor'],
-                self._instances['config']
-                # 暂不注入error_handler
+                self._instances['config'],
+                self._instances['error_handler']
             )
             self._service_creation_order.append('game_analyzer')
         
@@ -110,13 +107,14 @@ class EnhancedContainer:
         if 'game_state' not in self._instances:
             self._instances['game_state'] = GameState(
                 self._instances['logger'],
-                self._instances['game_analyzer']
-                # 暂不注入error_handler
+                self._instances['game_analyzer'],
+                self._instances['error_handler']
             )
             self._service_creation_order.append('game_state')
         
-        # 自动操作器
+        # 自动操作器（懒加载避免循环导入）
         if 'auto_operator' not in self._instances:
+            from ..services.auto_operator import AutoOperator
             self._instances['auto_operator'] = AutoOperator(
                 self._instances['error_handler'],
                 self._instances['window_manager'],
@@ -124,13 +122,7 @@ class EnhancedContainer:
             )
             self._service_creation_order.append('auto_operator')
         
-        # 配置管理器
-        if 'config_manager' not in self._instances:
-            self._instances['config_manager'] = ConfigManager(
-                self._instances['config']
-                # 暂不注入error_handler
-            )
-            self._service_creation_order.append('config_manager')
+        # 注意：配置管理器现在由统一配置系统提供，无需单独创建
     
     def _inject_dependencies(self):
         """注入依赖关系"""
@@ -147,8 +139,7 @@ class EnhancedContainer:
                 error_handler.set_game_state(self._instances['game_state'])
             if 'game_analyzer' in self._instances:
                 error_handler.set_game_analyzer(self._instances['game_analyzer'])
-            if 'config_manager' in self._instances:
-                error_handler.set_config(self._instances['config_manager'])
+            # 配置由统一配置系统管理，无需手动设置
         
         # 为其他服务注入error_handler（如果它们支持的话）
         for service_name, service in self._instances.items():
@@ -196,9 +187,8 @@ class EnhancedContainer:
         elif 'config' in self._instances:
             return self._instances['config']
         else:
-            # 兼容旧版本调用
-            config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'settings.json')
-            self._instances['config'] = Config(config_path)
+            # 兼容旧版本调用，使用统一配置系统单例
+            self._instances['config'] = config
             return self._instances['config']
     
     def logger(self):
@@ -208,8 +198,8 @@ class EnhancedContainer:
         elif 'logger' in self._instances:
             return self._instances['logger']
         else:
-            # 兼容旧版本调用
-            self._instances['logger'] = GameLogger()
+            # 兼容旧版本调用，使用统一配置系统
+            self._instances['logger'] = GameLogger(self.config(), "Container")
             return self._instances['logger']
     
     def error_handler(self) -> ErrorHandler:
@@ -248,8 +238,7 @@ class EnhancedContainer:
             error_handler.set_game_state(self._instances['game_state'])
         if 'game_analyzer' in self._instances:
             error_handler.set_game_analyzer(self._instances['game_analyzer'])
-        if 'config_manager' in self._instances:
-            error_handler.set_config(self._instances['config_manager'])
+        # 配置由统一配置系统管理，无需手动设置
     
     def window_manager(self):
         """获取窗口管理服务实例"""
@@ -335,8 +324,9 @@ class EnhancedContainer:
         elif 'auto_operator' in self._instances:
             return self._instances['auto_operator']
         else:
-            # 兼容旧版本调用
+            # 兼容旧版本调用（懒加载避免循环导入）
             if 'auto_operator' not in self._instances:
+                from ..services.auto_operator import AutoOperator
                 self._instances['auto_operator'] = AutoOperator(
                     self.error_handler(),
                     self.window_manager(),
@@ -345,18 +335,9 @@ class EnhancedContainer:
             return self._instances['auto_operator']
     
     def config_manager(self):
-        """获取配置管理器实例"""
-        if self._initialization_phase == "READY":
-            return self._instances.get('config_manager')
-        elif 'config_manager' in self._instances:
-            return self._instances['config_manager']
-        else:
-            # 兼容旧版本调用
-            if 'config_manager' not in self._instances:
-                self._instances['config_manager'] = ConfigManager(
-                    self.config()
-                )
-            return self._instances['config_manager']
+        """获取配置管理器实例 - 现在直接返回统一配置系统"""
+        # 统一配置系统替代了传统的配置管理器
+        return self.config()
     
     def get_initialization_status(self):
         """获取初始化状态"""
@@ -369,4 +350,4 @@ class EnhancedContainer:
 
 
 # 向后兼容性别名
-Container = EnhancedContainer 
+Container = EnhancedContainer

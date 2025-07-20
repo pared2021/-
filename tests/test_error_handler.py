@@ -2,13 +2,13 @@ import unittest
 from unittest.mock import Mock, patch
 import numpy as np
 import torch
-from src.common.error_types import (
+from ..src.common.error_types import (
     ErrorCode, GameAutomationError, WindowError,
     ImageProcessingError, ActionError, StateError, ModelError,
     ErrorContext
 )
-from src.services.error_handler import ErrorHandler
-from src.services.logger import GameLogger
+from ..src.services.error_handler import ErrorHandler
+from ..src.services.logger import GameLogger
 
 class TestErrorHandler(unittest.TestCase):
     """错误处理服务测试"""
@@ -239,4 +239,4 @@ class TestErrorHandler(unittest.TestCase):
             self.assertFalse(result)
             
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

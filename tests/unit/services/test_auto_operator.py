@@ -8,12 +8,12 @@ from unittest.mock import MagicMock, patch
 # 添加项目根目录到系统路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from src.services.auto_operator import AutoOperator, ActionType
-from src.services.logger import GameLogger
-from src.services.action_simulator import ActionSimulator
-from src.services.game_state import GameState
-from src.services.image_processor import ImageProcessor
-from src.services.config import Config
+from ....src.services.auto_operator import AutoOperator, ActionType
+from ....src.services.logger import GameLogger
+from ....src.services.action_simulator import ActionSimulator
+from ....src.services.game_state import GameState
+from ....src.services.image_processor import ImageProcessor
+from ....src.services.config import Config
 
 class TestAutoOperator(unittest.TestCase):
     """自动操作器测试类"""
@@ -340,4 +340,4 @@ class TestAutoOperator(unittest.TestCase):
         self.assertNotEqual(action["type"], ActionType.REFRESH_WINDOW)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

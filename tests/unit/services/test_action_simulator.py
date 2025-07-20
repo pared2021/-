@@ -8,10 +8,10 @@ from unittest.mock import MagicMock, patch, call
 # 添加项目根目录到系统路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from src.services.action_simulator import ActionSimulator
-from src.services.logger import GameLogger
-from src.services.window_manager import GameWindowManager
-from src.services.config import Config
+from ....src.services.action_simulator import ActionSimulator
+from ....src.services.logger import GameLogger
+from ....src.services.window_manager import GameWindowManager
+from ....src.services.config import Config
 
 class TestActionSimulator(unittest.TestCase):
     """动作模拟器测试类"""
@@ -246,4 +246,4 @@ class TestActionSimulator(unittest.TestCase):
         self.window_manager.set_foreground.assert_called_once()
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

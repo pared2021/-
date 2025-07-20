@@ -9,14 +9,14 @@ from unittest.mock import MagicMock, patch
 # 添加项目根目录到系统路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from src.services.window_manager import GameWindowManager
-from src.services.image_processor import ImageProcessor
-from src.services.game_analyzer import GameAnalyzer
-from src.services.action_simulator import ActionSimulator
-from src.services.auto_operator import AutoOperator, ActionType
-from src.services.game_state import GameState
-from src.services.logger import GameLogger
-from src.services.config import Config
+from ...src.services.window_manager import GameWindowManager
+from ...src.services.image_processor import ImageProcessor
+from ...src.services.game_analyzer import GameAnalyzer
+from ...src.services.action_simulator import ActionSimulator
+from ...src.services.auto_operator import AutoOperator, ActionType
+from ...src.services.game_state import GameState
+from ...src.services.logger import GameLogger
+from ...src.services.config import Config
 
 class FunctionalTests(unittest.TestCase):
     """功能测试类"""
@@ -50,7 +50,7 @@ class FunctionalTests(unittest.TestCase):
         # 添加一个红色"敌人"
         cv2.rectangle(self.test_image, (400, 300), (450, 350), (0, 0, 255), -1)
     
-    @patch('src.services.window_manager.win32gui')
+    @patch('...src.services.window_manager.win32gui')
     def test_window_capture(self, mock_win32gui):
         """测试窗口捕获功能"""
         # 模拟窗口列表
@@ -207,7 +207,7 @@ class FunctionalTests(unittest.TestCase):
     
     # ===== 错误处理测试用例 =====
     
-    @patch('src.services.window_manager.win32gui')
+    @patch('...src.services.window_manager.win32gui')
     def test_invalid_window_handle(self, mock_win32gui):
         """测试无效窗口句柄的处理"""
         # 模拟无效窗口
@@ -334,7 +334,7 @@ class FunctionalTests(unittest.TestCase):
             # 验证错误记录
             self.logger.error.assert_called()
     
-    @patch('src.services.window_manager.win32gui')
+    @patch('...src.services.window_manager.win32gui')
     def test_window_manager_find_nonexistent_window(self, mock_win32gui):
         """测试窗口管理器查找不存在的窗口"""
         # 设置FindWindow返回0（未找到窗口）
@@ -355,7 +355,7 @@ class FunctionalTests(unittest.TestCase):
         self.logger.error("测试错误消息")
         self.logger.error.assert_called()
     
-    @patch('src.services.window_manager.GameWindowManager')
+    @patch('...src.services.window_manager.GameWindowManager')
     def test_action_simulator_window_activation_failure(self, mock_window_manager):
         """测试动作模拟器处理窗口激活失败"""
         # 创建所需模拟对象
@@ -377,4 +377,4 @@ class FunctionalTests(unittest.TestCase):
         self.logger.error.assert_called()
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

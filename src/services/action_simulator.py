@@ -6,7 +6,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from .config import Config
 from .logger import GameLogger
 from .window_manager import GameWindowManager
-from src.common.error_types import ErrorCode, ActionError, ErrorContext
+from ..common.error_types import ErrorCode, ActionError, ErrorContext
 import keyboard
 import win32api
 import win32con
@@ -38,7 +38,8 @@ class ActionSimulator(QObject):
         
         # 设置pyautogui安全特性
         pyautogui.FAILSAFE = True
-        pyautogui.PAUSE = config.action.key_press_delay
+        automation_config = config.get_automation_config()
+        pyautogui.PAUSE = automation_config.get('key_press_delay', 0.1)
         
         self.logger.info("操作模拟器初始化完成")
     
@@ -286,7 +287,9 @@ class ActionSimulator(QObject):
         """
         self.action_started.emit("typewrite")
         try:
-            interval = interval or self.config.action.key_press_delay
+            if interval is None:
+                automation_config = self.config.get_automation_config()
+                interval = automation_config.get('key_press_delay', 0.1)
             
             self.logger.debug(f"输入文本: {text}")
             pyautogui.typewrite(text, interval=interval)
@@ -340,8 +343,10 @@ class ActionSimulator(QObject):
         """
         self.action_started.emit("random_wait")
         try:
-            min_seconds = min_seconds or self.config.action.min_wait_time
-            max_seconds = max_seconds or self.config.action.max_wait_time
+            if min_seconds is None or max_seconds is None:
+                automation_config = self.config.get_automation_config()
+                min_seconds = min_seconds or automation_config.get('min_wait_time', 0.5)
+                max_seconds = max_seconds or automation_config.get('max_wait_time', 2.0)
             
             wait_time = random.uniform(min_seconds, max_seconds)
             self.logger.debug(f"随机等待: {wait_time:.2f}秒")
@@ -444,4 +449,4 @@ class ActionSimulator(QObject):
     
     def cleanup(self) -> None:
         """清理资源"""
-        self.is_initialized = False 
+        self.is_initialized = False

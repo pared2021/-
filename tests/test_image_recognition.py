@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from PIL import Image
 from unittest.mock import patch, MagicMock
-from src.image_recognition import (
+from ..src.image_recognition import (
     load_image,
     find_template,
     find_text,

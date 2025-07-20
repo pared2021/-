@@ -3,9 +3,9 @@
 """
 import pytest
 from unittest.mock import Mock, patch
-from src.editor.script_editor import ScriptEditor
-from src.editor.code_formatter import CodeFormatter
-from src.editor.project_manager import ProjectManager
+from ..src.editor.script_editor import ScriptEditor
+from ..src.editor.code_formatter import CodeFormatter
+from ..src.editor.project_manager import ProjectManager
 
 
 @pytest.fixture

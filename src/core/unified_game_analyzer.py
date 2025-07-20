@@ -27,9 +27,9 @@ except ImportError:
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.services.logger import GameLogger
-from src.services.image_processor import ImageProcessor
-from src.services.config import Config
+from ..services.logger import GameLogger
+from ..services.image_processor import ImageProcessor
+from ..services.config import Config
 
 
 @dataclass

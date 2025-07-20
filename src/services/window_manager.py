@@ -16,8 +16,8 @@ from .config import Config
 from .logger import GameLogger
 from .exceptions import WindowNotFoundError
 from .capture_engines import GameCaptureEngine, TargetInfo
-from src.common.error_types import ErrorCode, WindowError, ErrorContext
-from src.services.error_handler import ErrorHandler
+from ..common.error_types import ErrorCode, WindowError, ErrorContext
+from .error_handler import ErrorHandler
 
 # 定义回调函数类型
 WINEVENTPROC = ctypes.WINFUNCTYPE(
@@ -94,9 +94,10 @@ class GameWindowManager(QObject):
         self.hook = None
         self.hook_thread = None
         
-        # 监控的窗口类名和标题
-        self.target_class = config.window.window_class
-        self.target_title = config.window.window_title
+        # 监控的窗口类名和标题（使用统一配置系统）
+        window_config = config.get_window_config()
+        self.target_class = window_config.get('window_class', '')
+        self.target_title = window_config.get('window_title', '')
         
         # 初始化回调函数列表
         self.window_callbacks = []
@@ -104,6 +105,9 @@ class GameWindowManager(QObject):
         # 初始化区域字典
         self.regions = {}
         self.last_window_state = None
+        
+        # 初始化窗口缓存
+        self.windows_cache = []
         
         self.logger.info("窗口管理器初始化完成")
         
@@ -491,7 +495,9 @@ class GameWindowManager(QObject):
                                 win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
             
             # 等待窗口激活
-            time.sleep(self.config.window.activation_delay)
+            window_config = self.config.get_window_config()
+            activation_delay = window_config.get('activation_delay', 0.5)
+            time.sleep(activation_delay)
             
             self.logger.info("窗口激活成功")
             return True
@@ -1123,4 +1129,4 @@ class GameWindowManager(QObject):
                     window_handle=hwnd
                 )
             )
-            return False 
+            return False

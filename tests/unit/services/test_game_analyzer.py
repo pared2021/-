@@ -10,10 +10,10 @@ from unittest.mock import MagicMock, patch, mock_open
 # 添加项目根目录到系统路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from src.services.game_analyzer import GameAnalyzer
-from src.services.logger import GameLogger
-from src.services.image_processor import ImageProcessor
-from src.services.config import Config
+from ....src.services.game_analyzer import GameAnalyzer
+from ....src.services.logger import GameLogger
+from ....src.services.image_processor import ImageProcessor
+from ....src.services.config import Config
 
 class TestGameAnalyzer(unittest.TestCase):
     """游戏分析器测试类"""
@@ -174,4 +174,4 @@ class TestGameAnalyzer(unittest.TestCase):
         self.assertEqual(distance, 5.0)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

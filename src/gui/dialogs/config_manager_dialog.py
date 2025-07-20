@@ -10,8 +10,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                            QMessageBox, QFileDialog)
 from PyQt6.QtCore import Qt
 
-from src.services.error_handler import ErrorHandler
-from src.common.error_types import ErrorCode, ErrorContext
+from ...services.error_handler import ErrorHandler
+from ...common.error_types import ErrorCode, ErrorContext
 
 class ConfigManagerDialog(QDialog):
     """配置管理对话框"""
@@ -220,14 +220,16 @@ class ConfigManagerDialog(QDialog):
                         self.debug_dir.setText(debug.get("dir", "debug"))
                         
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.CONFIG_ERROR,
                 "加载配置失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="ConfigManagerDialog._load_config"
+                    source="ConfigManagerDialog._load_config",
+                    details={"error_info": str(e)}
                 )
             )
+            self.error_handler.handle_error(error)
             
     def _on_save_config(self):
         """保存配置处理"""
@@ -275,11 +277,13 @@ class ConfigManagerDialog(QDialog):
             self.accept()
             
         except Exception as e:
-            self.error_handler.handle_error(
+            from ...common.error_types import GameAutomationError
+            error = GameAutomationError(
                 ErrorCode.CONFIG_ERROR,
                 "保存配置失败",
                 ErrorContext(
-                    error_info=str(e),
-                    error_location="ConfigManagerDialog._on_save_config"
+                    source="ConfigManagerDialog._on_save_config",
+                    details={"error_info": str(e)}
                 )
-            ) 
+            )
+            self.error_handler.handle_error(error)

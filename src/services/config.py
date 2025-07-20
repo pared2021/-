@@ -1,388 +1,553 @@
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Any, Optional
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+配置管理服务 - 基于PyQt6 QSettings标准模式
+遵循PyQt6最佳实践，使用QSettings进行配置存储
+"""
+
 import os
 import json
 import logging
+from typing import Dict, Any, Optional, Union
+from dataclasses import dataclass, field
 
-# 可选的torch依赖
+# PyQt6导入
+try:
+    from PyQt6.QtCore import QSettings, QCoreApplication
+    from ..common.app_config import init_application_metadata, get_app_info
+    PYQT6_AVAILABLE = True
+except ImportError:
+    PYQT6_AVAILABLE = False
+    print("⚠️ PyQt6不可用，配置服务将使用JSON文件模式")
+
+# 可选依赖
 try:
     import torch
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
 
-@dataclass
-class WindowConfig:
-    """窗口管理配置"""
-    # 窗口查找参数
-    window_class: str = ""  # 推荐设为目标窗口类名，如无则保持空字符串
-    window_title: str = ""  # 推荐设为目标窗口标题，如无则保持空字符串
-    # 截图参数
-    screenshot_interval: float = 0.1  # 截图间隔（秒）
-    # 窗口激活参数
-    activation_delay: float = 0.5  # 激活窗口后的延迟（秒）
-    # 窗口刷新参数
-    refresh_interval: int = 1000  # 窗口列表刷新间隔（毫秒）
-    last_selected: str = ""
 
 @dataclass
-class YOLOConfig:
-    """YOLOv5配置"""
-    # 模型参数
-    model_path: str = 'yolov5n.pt'  # 模型路径
-    confidence_threshold: float = 0.5  # 置信度阈值
-    iou_threshold: float = 0.45  # IOU阈值
-    # 训练参数
-    train_epochs: int = 100  # 训练轮数
-    train_batch_size: int = 16  # 训练批次大小
-    train_img_size: int = 640  # 训练图像大小
-
-@dataclass
-class ImageProcessorConfig:
-    """图像处理配置"""
-    # 模板匹配参数
-    template_match_threshold: float = 0.8  # 模板匹配阈值
-    # 颜色检测参数
-    color_detection_threshold: float = 0.7  # 颜色检测阈值
-    # 状态向量参数
-    max_elements_per_class: int = 10  # 每类最大元素数量
-
-@dataclass
-class ActionConfig:
-    """动作模拟配置"""
-    # 鼠标参数
-    mouse_speed: float = 0.5  # 鼠标移动速度（0-1）
-    mouse_offset: int = 5  # 鼠标随机偏移量（像素）
-    click_delay: float = 0.1  # 点击延迟（秒）
-    # 键盘参数
-    key_press_delay: float = 0.1  # 按键延迟（秒）
-    # 随机延迟参数
-    min_random_delay: float = 0.1  # 最小随机延迟（秒）
-    max_random_delay: float = 0.5  # 最大随机延迟（秒）
-
-@dataclass
-class DQNConfig:
-    """DQN配置"""
-    # 网络参数
-    state_size: int = 100  # 状态空间维度
-    action_size: int = 10  # 动作空间维度
-    hidden_size: int = 128  # 隐藏层大小
-    device: str = 'cuda' if TORCH_AVAILABLE and torch.cuda.is_available() else 'cpu'  # 设备
-    # 训练参数
-    memory_size: int = 10000  # 经验回放缓冲区大小
-    batch_size: int = 32  # 训练批次大小
-    gamma: float = 0.95  # 折扣因子
-    initial_epsilon: float = 1.0  # 初始探索率
-    min_epsilon: float = 0.01  # 最小探索率
-    epsilon_decay: float = 0.995  # 探索率衰减率
-    learning_rate: float = 0.001  # 学习率
-    target_update: int = 100  # 目标网络更新频率
-
-@dataclass
-class TemplateCollectorConfig:
-    """模板收集配置"""
-    # 收集参数
-    collection_duration: int = 300  # 收集持续时间（秒）
-    collection_interval: float = 0.5  # 收集间隔（秒）
-    min_template_size: int = 20  # 最小模板大小（像素）
-    max_template_size: int = 200  # 最大模板大小（像素）
-    # 保存参数
-    template_dir: str = 'templates'  # 模板保存目录
-    image_similarity_threshold: float = 0.9  # 图像相似度阈值
-
-@dataclass
-class UIConfig:
-    """UI配置"""
-    # 窗口参数
-    window_title: str = '游戏自动化工具'
-    window_width: int = 1200
-    window_height: int = 800
-    # 显示参数
-    display_fps: int = 30  # 显示帧率
-    # 主题参数
-    theme: str = 'light'  # 主题（light/dark）
-
-@dataclass
-class TemplateConfig:
-    """模板配置"""
-    # 保存参数
-    output_dir: str = 'templates'  # 模板保存目录
-    image_similarity_threshold: float = 0.9  # 图像相似度阈值
-    # 收集参数
-    duration: int = 300  # 收集持续时间（秒）
-    interval: float = 0.5  # 收集间隔（秒）
-    collection_interval: float = 0.5  # 收集间隔（秒）
-    min_template_size: int = 20  # 最小模板大小（像素）
-    max_template_size: int = 200  # 最大模板大小（像素）
-    last_dir: str = "templates"
-
-@dataclass
-class LoggingConfig:
-    """日志配置"""
-    log_dir: str = 'logs'  # 日志目录
-    log_level: str = 'INFO'  # 日志级别
-    max_file_size: int = 10 * 1024 * 1024  # 最大文件大小（10MB）
-    backup_count: int = 5  # 备份文件数量
-    log_format: str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'  # 日志格式
-    date_format: str = '%Y-%m-%d %H:%M:%S'  # 日期格式
-    enable_console: bool = True  # 是否启用控制台输出
-    enable_file: bool = True  # 是否启用文件输出
-    max_recursion_depth: int = 10  # 最大递归深度
-    log_rotation: str = 'size'  # 日志轮转方式（D: 每天, H: 每小时, M: 每分钟）
-    log_retention_days: int = 30  # 日志保留天数
-
-@dataclass
-class FrameConfig:
-    """画面配置"""
-    # 更新参数
-    update_interval: int = 33  # 画面更新间隔（毫秒）
-    # 显示参数
-    display_width: int = 640  # 显示宽度
-    display_height: int = 480  # 显示高度
-    # 缩放参数
-    scale_factor: float = 1.0  # 缩放因子
-
-@dataclass
-class GameStateConfig:
-    """游戏状态配置"""
-    # 分析参数
-    analysis_interval: int = 1000  # 状态分析间隔（毫秒）
-    # 历史记录参数
-    max_history_size: int = 1000  # 最大历史记录数量
-    # 状态缓存参数
-    cache_duration: int = 5000  # 状态缓存持续时间（毫秒）
-    last_state: Dict[str, Any] = None
-
-@dataclass
-class Config:
-    """总配置 - 单例模式"""
-    window: WindowConfig = field(default_factory=WindowConfig)
-    yolo: YOLOConfig = field(default_factory=YOLOConfig)
-    image_processor: ImageProcessorConfig = field(default_factory=ImageProcessorConfig)
-    action: ActionConfig = field(default_factory=ActionConfig)
-    dqn: DQNConfig = field(default_factory=DQNConfig)
-    template_collector: TemplateCollectorConfig = field(default_factory=TemplateCollectorConfig)
-    ui: UIConfig = field(default_factory=UIConfig)
-    template: TemplateConfig = field(default_factory=TemplateConfig)
-    logging: LoggingConfig = field(default_factory=LoggingConfig)
-    frame: FrameConfig = field(default_factory=FrameConfig)
-    game_state: GameStateConfig = field(default_factory=GameStateConfig)
+class ConfigDefaults:
+    """配置默认值定义"""
     
-    # 兼容旧ConfigManager的字段
-    _legacy_config: Dict[str, Any] = field(default_factory=dict)
-    _config_file: str = "config.json"
-    _logger: Any = field(default_factory=lambda: logging.getLogger("ConfigManager"))
+    # 应用程序配置
+    APPLICATION = {
+        "name": "GameAutomationTool",
+        "version": "1.0.0", 
+        "window_title": "游戏自动操作工具",
+        "window_size": [800, 600],
+        "language": "zh_CN",
+        "theme": "default"
+    }
+    
+    # 热键配置
+    HOTKEYS = {
+        "start_record": "F9",
+        "stop_record": "F10",
+        "start_playback": "F11", 
+        "stop_playback": "F12"
+    }
+    
+    # 播放选项
+    PLAYBACK_OPTIONS = {
+        "speed": 1.0,
+        "loop_count": 1,
+        "random_delay": 0.0
+    }
+    
+    # 窗口管理
+    WINDOW = {
+        "last_selected": "",
+        "refresh_interval": 1000,
+        "screenshot_interval": 0.1,
+        "activation_delay": 0.5
+    }
+    
+    # 模板配置
+    TEMPLATE = {
+        "duration": 300,
+        "interval": 0.5,
+        "last_dir": "templates",
+        "save_dir": "templates",
+        "similarity_threshold": 0.9,
+        "min_size": 20,
+        "max_size": 200
+    }
+    
+    # 游戏状态
+    GAME_STATE = {
+        "analysis_interval": 1000,
+        "confidence_threshold": 0.8,
+        "detection_methods": ["template_matching", "feature_detection"],
+        "auto_save": True,
+        "max_history_size": 1000,
+        "cache_duration": 5000
+    }
+    
+    # 自动化配置
+    AUTOMATION = {
+        "default_delay": 0.1,
+        "random_factor": 0.1,
+        "retry_count": 3,
+        "timeout": 30,
+        "mouse_speed": 0.5,
+        "mouse_offset": 5,
+        "click_delay": 0.1
+    }
+    
+    # 日志配置
+    LOGGING = {
+        "level": "INFO",
+        "file": "logs/application.log",
+        "max_size": "10MB",
+        "backup_count": 5,
+        "enable_console": True,
+        "enable_file": True,
+        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    }
+    
+    # 性能配置
+    PERFORMANCE = {
+        "max_memory_usage": "512MB",
+        "cpu_limit": 80,
+        "gpu_acceleration": True,
+        "display_fps": 30,
+        "update_interval": 33
+    }
 
-    def __post_init__(self):
-        """初始化后处理"""
-        # 确保必要的目录存在
+
+class Config:
+    """
+    统一配置管理器 - 基于PyQt6 QSettings
+    支持两种模式：
+    1. QSettings模式（推荐）- 使用系统原生配置存储
+    2. JSON文件模式（备用）- 当PyQt6不可用时
+    """
+    
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        """单例模式实现"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        """初始化配置管理器"""
+        if Config._initialized:
+            return
+        
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self._use_qsettings = PYQT6_AVAILABLE
+        # 支持多个可能的配置文件路径
+        self._config_file = self._find_config_file()
+        self._qsettings = None
+        self._json_config = {}
+        
+        # 初始化
+        self._init_storage()
+        self._ensure_directories()
+        Config._initialized = True
+    
+    def _find_config_file(self) -> str:
+        """查找配置文件的正确路径"""
+        possible_paths = [
+            "config/config.json",  # 新的组织结构
+            "config.json",         # 原始位置
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                self.logger.info(f"找到配置文件: {path}")
+                return path
+        
+        # 如果都不存在，使用新的默认路径
+        default_path = "config/config.json"
+        self.logger.info(f"使用默认配置文件路径: {default_path}")
+        return default_path
+    
+    def _init_storage(self):
+        """初始化存储系统"""
+        if self._use_qsettings:
+            try:
+                # 确保应用元数据已设置
+                if not QCoreApplication.organizationName():
+                    init_application_metadata()
+                
+                # 创建QSettings实例，使用应用元数据
+                self._qsettings = QSettings()
+                
+                # 验证QSettings可用性
+                test_key = "system/qsettings_test"
+                self._qsettings.setValue(test_key, "test")
+                if self._qsettings.value(test_key) == "test":
+                    self._qsettings.remove(test_key)
+                    self.logger.info("QSettings初始化成功")
+                    self._migrate_from_json_if_needed()
+                else:
+                    raise RuntimeError("QSettings功能测试失败")
+                    
+            except Exception as e:
+                self.logger.warning(f"QSettings初始化失败，降级到JSON模式: {e}")
+                self._use_qsettings = False
+                self._qsettings = None
+        
+        if not self._use_qsettings:
+            self._load_json_config()
+    
+    def _migrate_from_json_if_needed(self):
+        """如果需要，从JSON配置迁移到QSettings"""
+        if not os.path.exists(self._config_file):
+            return
+        
+        try:
+            with open(self._config_file, 'r', encoding='utf-8') as f:
+                json_config = json.load(f)
+            
+            # 检查QSettings是否为空（首次运行）
+            if not self._qsettings.childGroups():
+                self.logger.info("检测到JSON配置文件，开始迁移到QSettings...")
+                self._import_json_to_qsettings(json_config)
+                
+                # 备份原JSON文件
+                backup_file = f"{self._config_file}.backup"
+                os.rename(self._config_file, backup_file)
+                self.logger.info(f"JSON配置已迁移，原文件备份为: {backup_file}")
+                
+        except Exception as e:
+            self.logger.error(f"配置迁移失败: {e}")
+    
+    def _import_json_to_qsettings(self, json_config: dict):
+        """将JSON配置导入到QSettings"""
+        def import_recursive(data: dict, prefix: str = ""):
+            for key, value in data.items():
+                full_key = f"{prefix}/{key}" if prefix else key
+                
+                if isinstance(value, dict):
+                    # 递归处理嵌套字典
+                    import_recursive(value, full_key)
+                else:
+                    # 设置值
+                    self._qsettings.setValue(full_key, value)
+        
+        import_recursive(json_config)
+        self._qsettings.sync()
+    
+    def _load_json_config(self):
+        """加载JSON配置（备用模式）"""
+        try:
+            if os.path.exists(self._config_file):
+                with open(self._config_file, 'r', encoding='utf-8') as f:
+                    self._json_config = json.load(f)
+                self.logger.info("JSON配置加载成功")
+            else:
+                self._json_config = self._create_default_config()
+                self._save_json_config()
+                self.logger.info("创建默认JSON配置")
+        except Exception as e:
+            self.logger.error(f"JSON配置加载失败: {e}")
+            self._json_config = self._create_default_config()
+    
+    def _save_json_config(self):
+        """保存JSON配置"""
+        try:
+            with open(self._config_file, 'w', encoding='utf-8') as f:
+                json.dump(self._json_config, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            self.logger.error(f"JSON配置保存失败: {e}")
+    
+    def _create_default_config(self) -> dict:
+        """创建默认配置"""
+        return {
+            "application": ConfigDefaults.APPLICATION.copy(),
+            "hotkeys": ConfigDefaults.HOTKEYS.copy(),
+            "playback_options": ConfigDefaults.PLAYBACK_OPTIONS.copy(),
+            "window": ConfigDefaults.WINDOW.copy(),
+            "template": ConfigDefaults.TEMPLATE.copy(),
+            "game_state": ConfigDefaults.GAME_STATE.copy(),
+            "automation": ConfigDefaults.AUTOMATION.copy(),
+            "logging": ConfigDefaults.LOGGING.copy(),
+            "performance": ConfigDefaults.PERFORMANCE.copy()
+        }
+    
+    def _ensure_directories(self):
+        """确保必要的目录存在"""
         directories = [
-            self.template.output_dir,  # 模板目录
-            self.logging.log_dir,      # 日志目录
-            os.path.dirname(self.yolo.model_path) if self.yolo.model_path else None,  # YOLO模型目录
-            'models',                  # 模型保存目录
-            'data',                    # 数据目录
-            'screenshots'              # 截图目录
+            "config",
+            "logs",
+            "templates", 
+            "screenshots",
+            "models",
+            "data"
         ]
         
         for directory in directories:
-            if directory:  # 确保目录路径不为空
-                try:
-                    os.makedirs(directory, exist_ok=True)
-                    print(f"确保目录存在: {directory}")
-                except Exception as e:
-                    print(f"创建目录失败 {directory}: {e}")
-        
-        # 初始化兼容配置
-        self._load_legacy_config()
-
-    def get_data_dir(self) -> str:
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except Exception as e:
+                self.logger.warning(f"创建目录失败 {directory}: {e}")
+    
+    # === 核心配置访问方法 ===
+    
+    def get(self, key: str, default: Any = None) -> Any:
         """
-        获取数据目录路径
+        获取配置值
         
+        Args:
+            key: 配置键，支持分层访问（如 'application/name'）
+            default: 默认值
+            
         Returns:
-            str: 数据目录路径
+            配置值
         """
-        return 'data'
+        if self._use_qsettings:
+            return self._qsettings.value(key, default)
+        else:
+            # JSON模式下的分层访问
+            keys = key.split('/')
+            value = self._json_config
+            
+            try:
+                for k in keys:
+                    value = value[k]
+                return value
+            except (KeyError, TypeError):
+                return default
     
-    def get_game_name(self) -> str:
+    def set(self, key: str, value: Any):
         """
-        获取当前游戏名称
+        设置配置值
         
-        Returns:
-            str: 游戏名称，默认为"default"
+        Args:
+            key: 配置键
+            value: 配置值
         """
-        return "default"  # 可以从配置文件或窗口标题中获取
+        if self._use_qsettings:
+            self._qsettings.setValue(key, value)
+            self._qsettings.sync()
+        else:
+            # JSON模式下的分层设置
+            keys = key.split('/')
+            config = self._json_config
+            
+            # 导航到父级
+            for k in keys[:-1]:
+                if k not in config:
+                    config[k] = {}
+                config = config[k]
+            
+            # 设置值
+            config[keys[-1]] = value
+            self._save_json_config()
     
-    def is_torch_available(self) -> bool:
-        """
-        检查torch是否可用
-        
-        Returns:
-            bool: torch是否可用
-        """
-        return TORCH_AVAILABLE
+    def remove(self, key: str):
+        """删除配置项"""
+        if self._use_qsettings:
+            self._qsettings.remove(key)
+            self._qsettings.sync()
+        else:
+            keys = key.split('/')
+            config = self._json_config
+            
+            try:
+                # 导航到父级
+                for k in keys[:-1]:
+                    config = config[k]
+                
+                # 删除键
+                if keys[-1] in config:
+                    del config[keys[-1]]
+                    self._save_json_config()
+            except (KeyError, TypeError):
+                pass
     
-    # === 兼容旧ConfigManager的方法 ===
+    def clear(self):
+        """清空所有配置"""
+        if self._use_qsettings:
+            self._qsettings.clear()
+            self._qsettings.sync()
+        else:
+            self._json_config = self._create_default_config()
+            self._save_json_config()
     
-    def get_hotkeys(self) -> Dict[str, str]:
-        """获取热键配置 - 兼容旧ConfigManager"""
-        default_hotkeys = {
-            "start_record": "F9",
-            "stop_record": "F10", 
-            "start_playback": "F11",
-            "stop_playback": "F12",
-        }
-        return self._legacy_config.get("hotkeys", default_hotkeys)
+    # === 分组配置访问方法 ===
     
-    def get_playback_options(self) -> Dict[str, Any]:
-        """获取播放选项 - 兼容旧ConfigManager"""
-        default_options = {
-            "speed": 1.0, 
-            "loop_count": 1, 
-            "random_delay": 0.0
-        }
-        return self._legacy_config.get("playback_options", default_options)
+    def get_application_config(self) -> dict:
+        """获取应用程序配置"""
+        return self._get_section("application", ConfigDefaults.APPLICATION)
+    
+    def get_hotkeys(self) -> dict:
+        """获取热键配置"""
+        return self._get_section("hotkeys", ConfigDefaults.HOTKEYS)
+    
+    def get_playback_options(self) -> dict:
+        """获取播放选项"""
+        return self._get_section("playback_options", ConfigDefaults.PLAYBACK_OPTIONS)
+    
+    def get_window_config(self) -> dict:
+        """获取窗口配置"""
+        return self._get_section("window", ConfigDefaults.WINDOW)
+    
+    def get_template_config(self) -> dict:
+        """获取模板配置"""
+        return self._get_section("template", ConfigDefaults.TEMPLATE)
+    
+    def get_game_state_config(self) -> dict:
+        """获取游戏状态配置"""
+        return self._get_section("game_state", ConfigDefaults.GAME_STATE)
+    
+    def get_automation_config(self) -> dict:
+        """获取自动化配置"""
+        return self._get_section("automation", ConfigDefaults.AUTOMATION)
+    
+    def get_logging_config(self) -> dict:
+        """获取日志配置"""
+        return self._get_section("logging", ConfigDefaults.LOGGING)
+    
+    def get_performance_config(self) -> dict:
+        """获取性能配置"""
+        return self._get_section("performance", ConfigDefaults.PERFORMANCE)
+    
+    def _get_section(self, section: str, defaults: dict) -> dict:
+        """获取配置分组"""
+        if self._use_qsettings:
+            result = {}
+            self._qsettings.beginGroup(section)
+            for key in defaults.keys():
+                result[key] = self._qsettings.value(key, defaults[key])
+            self._qsettings.endGroup()
+            return result
+        else:
+            return self._json_config.get(section, defaults.copy())
+    
+    # === 兼容性方法 ===
     
     def get_config(self, key: str, default=None):
-        """兼容旧版get_config接口"""
-        # 首先检查新配置结构
-        if hasattr(self, key):
-            return getattr(self, key)
-        
-        # 检查legacy配置
-        if key in self._legacy_config:
-            return self._legacy_config[key]
-        
-        # 检查一些常用的映射
-        config_mapping = {
-            "window_title": self.ui.window_title,
-            "window_size": [self.ui.window_width, self.ui.window_height],
-            "language": "zh_CN",
-            "theme": self.ui.theme,
-        }
-        
-        if key in config_mapping:
-            return config_mapping[key]
-        
-        return default
+        """兼容旧版接口"""
+        return self.get(key, default)
     
     def set_config(self, key: str, value):
-        """兼容旧版set_config接口"""
-        # 更新legacy配置
-        self._legacy_config[key] = value
-        
-        # 尝试映射到新配置结构
-        if key == "window_title":
-            self.ui.window_title = value
-        elif key == "theme":
-            self.ui.theme = value
-        elif key == "window_size" and isinstance(value, list) and len(value) >= 2:
-            self.ui.window_width = value[0]
-            self.ui.window_height = value[1]
-        
-        # 保存配置
-        self._save_legacy_config()
+        """兼容旧版接口"""
+        self.set(key, value)
     
     def delete_config(self, key: str):
-        """删除配置项 - 兼容旧ConfigManager"""
-        if key in self._legacy_config:
-            del self._legacy_config[key]
-            self._save_legacy_config()
+        """兼容旧版接口"""
+        self.remove(key)
     
     def clear_config(self):
-        """清空所有配置 - 兼容旧ConfigManager"""
-        self._legacy_config.clear()
-        self._save_legacy_config()
+        """兼容旧版接口"""
+        self.clear()
     
-    def _load_legacy_config(self):
-        """加载兼容配置"""
-        try:
-            if os.path.exists(self._config_file):
-                with open(self._config_file, "r", encoding="utf-8") as f:
-                    self._legacy_config = json.load(f)
-            else:
-                self._legacy_config = self._create_default_legacy_config()
-                self._save_legacy_config()
-        except Exception as e:
-            self._logger.error("加载配置文件失败: %s", e)
-            self._legacy_config = self._create_default_legacy_config()
+    # === 实用方法 ===
     
-    def _save_legacy_config(self):
-        """保存兼容配置"""
-        try:
-            with open(self._config_file, "w", encoding="utf-8") as f:
-                json.dump(self._legacy_config, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            self._logger.error("保存配置文件失败: %s", e)
-    
-    def _create_default_legacy_config(self) -> Dict[str, Any]:
-        """创建默认兼容配置"""
-        return {
-            "window_title": "游戏自动操作工具",
-            "window_size": [800, 600],
-            "language": "zh_CN",
-            "theme": "default",
-            "hotkeys": {
-                "start_record": "F9",
-                "stop_record": "F10",
-                "start_playback": "F11",
-                "stop_playback": "F12",
-            },
-            "playback_options": {"speed": 1.0, "loop_count": 1, "random_delay": 0.0},
+    def get_storage_info(self) -> dict:
+        """获取存储信息"""
+        info = {
+            "mode": "QSettings" if self._use_qsettings else "JSON",
+            "pyqt6_available": PYQT6_AVAILABLE
         }
-    
-    # === 兼容多配置文件管理（来自zzz/config/config_manager.py） ===
-    
-    def load_named_config(self, name: str, config_dir: str = "config") -> Optional[Dict[str, Any]]:
-        """加载命名配置文件"""
-        # 创建配置目录
-        if not os.path.exists(config_dir):
-            os.makedirs(config_dir)
         
-        config_path = os.path.join(config_dir, f"{name}.json")
-        if not os.path.exists(config_path):
-            return None
-
+        if self._use_qsettings:
+            info.update({
+                "organization": QCoreApplication.organizationName(),
+                "application": QCoreApplication.applicationName(),
+                "settings_path": self._qsettings.fileName() if hasattr(self._qsettings, 'fileName') else "系统存储"
+            })
+        else:
+            info.update({
+                "config_file": os.path.abspath(self._config_file),
+                "file_exists": os.path.exists(self._config_file)
+            })
+        
+        return info
+    
+    def export_to_json(self, file_path: str) -> bool:
+        """导出配置到JSON文件"""
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data
-        except Exception as e:
-            print(f"加载配置失败: {str(e)}")
-            return None
-
-    def save_named_config(self, name: str, data: Dict[str, Any], config_dir: str = "config") -> bool:
-        """保存命名配置文件"""
-        # 创建配置目录
-        if not os.path.exists(config_dir):
-            os.makedirs(config_dir)
+            config_data = {}
             
-        config_path = os.path.join(config_dir, f"{name}.json")
-        try:
-            with open(config_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-                return True
+            if self._use_qsettings:
+                # 从QSettings读取所有配置
+                def read_recursive(group_prefix: str = ""):
+                    if group_prefix:
+                        self._qsettings.beginGroup(group_prefix)
+                    
+                    result = {}
+                    
+                    # 读取当前组的所有键
+                    for key in self._qsettings.childKeys():
+                        result[key] = self._qsettings.value(key)
+                    
+                    # 递归读取子组
+                    for group in self._qsettings.childGroups():
+                        if group_prefix:
+                            self._qsettings.endGroup()
+                            full_group = f"{group_prefix}/{group}"
+                        else:
+                            full_group = group
+                        
+                        result[group] = read_recursive(full_group)
+                        
+                        if group_prefix:
+                            self._qsettings.beginGroup(group_prefix)
+                    
+                    if group_prefix:
+                        self._qsettings.endGroup()
+                    
+                    return result
+                
+                config_data = read_recursive()
+            else:
+                config_data = self._json_config.copy()
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=4, ensure_ascii=False)
+            
+            self.logger.info(f"配置已导出到: {file_path}")
+            return True
+            
         except Exception as e:
-            print(f"保存配置失败: {str(e)}")
+            self.logger.error(f"配置导出失败: {e}")
+            return False
+    
+    def import_from_json(self, file_path: str) -> bool:
+        """从JSON文件导入配置"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            if self._use_qsettings:
+                self._import_json_to_qsettings(config_data)
+            else:
+                self._json_config = config_data
+                self._save_json_config()
+            
+            self.logger.info(f"配置已从 {file_path} 导入")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"配置导入失败: {e}")
             return False
 
-# 动态应用单例模式，避免循环导入
-def _apply_singleton_to_config():
-    """为Config类动态应用单例模式"""
-    try:
-        from src.common.singleton import singleton
-        global Config
-        Config = singleton(Config)
-    except ImportError:
-        # 如果无法导入单例模式，使用普通类
-        pass
-
-# 应用单例模式
-_apply_singleton_to_config()
-
-# 导出Config类
-__all__ = ['Config']
 
 # 创建全局配置实例
-config = Config() 
+config = Config()
+
+
+# === 便捷访问函数 ===
+
+def get_config(key: str, default=None):
+    """便捷的配置获取函数"""
+    return config.get(key, default)
+
+
+def set_config(key: str, value):
+    """便捷的配置设置函数"""
+    config.set(key, value)
+
+
+# 导出
+__all__ = ['Config', 'config', 'get_config', 'set_config', 'ConfigDefaults']

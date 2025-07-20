@@ -1,0 +1,193 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:  # 允许手动触发
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  lint-and-security:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install dependency-injector>=4.41.0
+        pip install bandit[toml] mypy black isort flake8
+        
+    - name: Run security scan
+      run: |
+        bandit -r src/ -f json -o bandit-report.json || true
+        bandit -r src/
+        
+    - name: Run type checking
+      run: |
+        mypy src/ --ignore-missing-imports || true
+        
+    - name: Check code formatting
+      run: |
+        black --check src/ tests/ || true
+        isort --check-only src/ tests/ || true
+        
+    - name: Run linting
+      run: |
+        flake8 src/ tests/ --max-line-length=100 || true
+
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+        exclude:
+          # 减少测试矩阵，提高效率
+          - os: windows-latest
+            python-version: '3.9'
+          - os: windows-latest  
+            python-version: '3.10'
+            
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        check-latest: true
+        
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install dependency-injector>=4.41.0
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install pytest-cov pytest-xvfb
+        
+    - name: Create test directories
+      run: |
+        mkdir -p logs screenshots templates htmlcov
+        
+    - name: Run tests with coverage (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        xvfb-run -a python -m pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing -v
+        
+    - name: Run tests with coverage (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        python -m pytest --cov=src --cov-report=xml --cov-report=html --cov-report=term-missing -v
+        
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        
+    - name: Archive test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+        path: |
+          htmlcov/
+          coverage.xml
+          pytest-report.xml
+        retention-days: 30
+
+  performance-test:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-benchmark memory-profiler
+        
+    - name: Run performance tests
+      run: |
+        python -m pytest tests/functional/test_performance.py -v --benchmark-only
+        
+    - name: Archive performance results
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-results
+        path: .benchmarks/
+        retention-days: 30
+
+  build-check:
+    name: Build Verification
+    runs-on: windows-latest
+    needs: [lint-and-security, test]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install dependency-injector>=4.41.0
+        pip install build wheel setuptools
+        
+    - name: Build package
+      run: |
+        python -m build
+        
+    - name: Verify installation
+      run: |
+        pip install dist/*.whl
+        python -c "from src.main import main; print('Build verification successful')"
+        python -c "from dependency_injector import containers; print('Clean Architecture: dependency-injector available')"
+        python -c "from src.core.containers import MainContainer; print('Clean Architecture: MainContainer importable')"
+        
+    - name: Archive build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: dist/
+        retention-days: 7

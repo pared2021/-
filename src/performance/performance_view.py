@@ -28,7 +28,8 @@ import csv
 import logging
 from pathlib import Path
 
-from .performance_monitor import PerformanceMonitor, PerformanceMetrics
+from .performance_monitor import PerformanceMonitor
+from ..core.types import UnifiedPerformanceMetrics as PerformanceMetrics
 
 
 class RealTimeChart(pg.PlotWidget):

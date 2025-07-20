@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, patch
 # 添加项目根目录到系统路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
-from src.services.window_manager import GameWindowManager
-from src.services.logger import GameLogger
-from src.services.config import Config
+from ....src.services.window_manager import GameWindowManager
+from ....src.services.logger import GameLogger
+from ....src.services.config import Config
 
 class TestWindowManager(unittest.TestCase):
     """窗口管理器测试类"""
@@ -119,4 +119,4 @@ class TestWindowManager(unittest.TestCase):
         mock_get_screenshot.assert_called_once()
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

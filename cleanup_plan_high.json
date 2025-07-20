@@ -1,0 +1,26 @@
+{
+  "plan_id": "cleanup_20250721_003136",
+  "priority": "high",
+  "estimated_hours": 142.0,
+  "tasks": [
+    {
+      "task_id": "task_002",
+      "name": "将服务定位器模式重构为依赖注入",
+      "priority": 10,
+      "estimated_hours": 14.0,
+      "description": "将服务定位器模式重构为依赖注入 (28 个问题)",
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "task_id": "task_001",
+      "name": "将硬编码的src导入转换为相对导入",
+      "priority": 9,
+      "estimated_hours": 128.0,
+      "description": "将硬编码的src导入转换为相对导入 (256 个问题)",
+      "dependencies": [],
+      "status": "pending"
+    }
+  ],
+  "created_at": "2025-07-21T00:31:36.420726"
+}

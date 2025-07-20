@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock, Mock
 import win32gui
 import win32con
-from src.executor.action_executor import ActionExecutor
+from ..src.executor.action_executor import ActionExecutor
 
 
 @pytest.fixture

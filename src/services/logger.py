@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from .config import Config
 from .exceptions import GameAutomationError
-from src.common.singleton import Singleton
+from ..common.singleton import Singleton
 
 class ErrorDeduplicator:
     """错误去重器"""
@@ -109,10 +109,17 @@ class GameLogger(Singleton):
             
         self.config = config
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(getattr(logging, config.logging.log_level))
+        
+        # 获取日志配置（使用新的配置接口）
+        log_config = config.get_logging_config()
+        
+        # 设置日志级别
+        log_level = log_config.get('level', 'INFO')
+        self.logger.setLevel(getattr(logging, log_level.upper()))
         
         # 创建日志目录
-        log_dir = config.logging.log_dir
+        log_file_path = log_config.get('file', 'logs/application.log')
+        log_dir = os.path.dirname(log_file_path)
         os.makedirs(log_dir, exist_ok=True)
         
         # 设置日志文件名
@@ -120,35 +127,34 @@ class GameLogger(Singleton):
         log_file = os.path.join(log_dir, f'{name}_{timestamp}.log')
         
         # 创建格式化器
-        formatter = logging.Formatter(
-            config.logging.log_format,
-            datefmt=config.logging.date_format
-        )
+        log_format = log_config.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(log_format, datefmt='%Y-%m-%d %H:%M:%S')
         
         # 创建文件处理器
-        if config.logging.enable_file:
-            if config.logging.log_rotation == 'size':
-                file_handler = RotatingFileHandler(
-                    log_file,
-                    maxBytes=config.logging.max_file_size,
-                    backupCount=config.logging.backup_count,
-                    encoding='utf-8'
-                )
+        if log_config.get('enable_file', True):
+            max_size_str = log_config.get('max_size', '10MB')
+            # 解析文件大小
+            if max_size_str.endswith('MB'):
+                max_bytes = int(max_size_str[:-2]) * 1024 * 1024
+            elif max_size_str.endswith('KB'):
+                max_bytes = int(max_size_str[:-2]) * 1024
             else:
-                when = config.logging.log_rotation
-                file_handler = TimedRotatingFileHandler(
-                    log_file,
-                    when=when,
-                    interval=1,
-                    backupCount=config.logging.backup_count,
-                    encoding='utf-8'
-                )
+                max_bytes = int(max_size_str)
+            
+            backup_count = log_config.get('backup_count', 5)
+            
+            file_handler = RotatingFileHandler(
+                log_file,
+                maxBytes=max_bytes,
+                backupCount=backup_count,
+                encoding='utf-8'
+            )
             file_handler.setLevel(logging.DEBUG)
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
         
         # 创建控制台处理器
-        if config.logging.enable_console:
+        if log_config.get('enable_console', True):
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.INFO)
             console_handler.setFormatter(formatter)
@@ -157,7 +163,7 @@ class GameLogger(Singleton):
         # 递归保护
         self._recursion_lock = threading.RLock()
         self._recursion_depth = 0
-        self._max_recursion_depth = config.logging.max_recursion_depth
+        self._max_recursion_depth = 10  # 使用固定值替代配置
         self._recursion_messages = {}  # 消息缓存，防止重复记录
         
         # 错误去重器
@@ -294,7 +300,10 @@ class GameLogger(Singleton):
             return
         
         # 创建截图目录
-        screenshot_dir = os.path.join(self.config.logging.log_dir, 'screenshots')
+        log_config = self.config.get_logging_config()
+        log_file_path = log_config.get('file', 'logs/application.log')
+        log_dir = os.path.dirname(log_file_path)
+        screenshot_dir = os.path.join(log_dir, 'screenshots')
         os.makedirs(screenshot_dir, exist_ok=True)
         
         # 保存截图
@@ -322,21 +331,26 @@ class GameLogger(Singleton):
     def cleanup(self):
         """清理日志资源"""
         # 清理过期的日志文件
-        if self.config.logging.log_retention_days > 0:
-            try:
-                log_dir = self.config.logging.log_dir
+        try:
+            log_config = self.config.get_logging_config()
+            log_retention_days = log_config.get('retention_days', 30)
+            
+            if log_retention_days > 0:
+                log_file_path = log_config.get('file', 'logs/application.log')
+                log_dir = os.path.dirname(log_file_path)
                 current_time = time.time()
                 
-                for filename in os.listdir(log_dir):
-                    filepath = os.path.join(log_dir, filename)
-                    if os.path.isfile(filepath):
-                        # 检查文件修改时间
-                        file_time = os.path.getmtime(filepath)
-                        if current_time - file_time > self.config.logging.log_retention_days * 86400:
-                            os.remove(filepath)
-                            self.info(f"删除过期日志文件: {filename}")
-            except Exception as e:
-                self.error(f"清理日志文件失败: {e}")
+                if os.path.exists(log_dir):
+                    for filename in os.listdir(log_dir):
+                        filepath = os.path.join(log_dir, filename)
+                        if os.path.isfile(filepath):
+                            # 检查文件修改时间
+                            file_time = os.path.getmtime(filepath)
+                            if current_time - file_time > log_retention_days * 86400:
+                                os.remove(filepath)
+                                self.info(f"删除过期日志文件: {filename}")
+        except Exception as e:
+            self.error(f"清理日志文件失败: {e}")
         
         # 关闭所有处理器
         for handler in self.logger.handlers:
@@ -362,4 +376,4 @@ class GameLogger(Singleton):
             else:
                 handler.setLevel(level)  # 控制台使用新级别
             
-        self.info(f"日志级别已设置为: {logging.getLevelName(level)}") 
+        self.info(f"日志级别已设置为: {logging.getLevelName(level)}")

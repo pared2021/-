@@ -5,10 +5,10 @@ import pytest
 from unittest.mock import Mock, patch
 import json
 from pathlib import Path
-from src.core.resource_manager import ResourceManager
-from src.core.task_system import TaskScheduler, Task, TaskPriority, TaskStatus
-from src.services.error_handler import ErrorHandler
-from src.core.game_adapter import GameAdapter
+from ..src.core.resource_manager import ResourceManager
+from ..src.core.task_system import TaskScheduler, Task, TaskPriority, TaskStatus
+from ..src.services.error_handler import ErrorHandler
+from ..src.core.game_adapter import GameAdapter
 
 
 @pytest.fixture

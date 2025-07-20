@@ -13,7 +13,7 @@ import win32gui
 import win32ui
 from PIL import Image
 
-from src.image_recognition import ImageRecognition
+from ..image_recognition import ImageRecognition
 
 
 @dataclass

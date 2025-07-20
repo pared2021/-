@@ -51,7 +51,7 @@ except ImportError:
     GameAnalyzer = None
 
 try:
-    from .game_state import GameState
+    from ..core.types import UnifiedGameState as GameState
     __all__.append('GameState')
 except ImportError:
     GameState = None
@@ -66,4 +66,4 @@ try:
     from .config import Config as ConfigManager
     __all__.append('ConfigManager')
 except ImportError:
-    ConfigManager = None 
+    ConfigManager = None

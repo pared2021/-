@@ -5,12 +5,12 @@
 from typing import Optional, List, Dict, Callable
 import time
 from dataclasses import dataclass
-from src.services.error_handler import ErrorHandler
-from src.common.error_types import ErrorCode, ErrorContext
+from ..error_handler import ErrorHandler
+from ...common.error_types import ErrorCode, ErrorContext
 from ..vision.state_recognizer import GameState
 
 # 使用统一的Action体系
-from src.common.action_system import (
+from ...common.action_system import (
     ActionType, AutomationAction, ActionSequence, ActionFactory, BaseAction
 )
 
@@ -345,4 +345,4 @@ class AutoController:
         Returns:
             bool: 是否成功
         """
-        return self._execute_action(action, None) 
+        return self._execute_action(action, None)

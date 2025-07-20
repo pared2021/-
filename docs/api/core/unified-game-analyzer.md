@@ -453,4 +453,4 @@ health_info = result.get('health_bars', [])
 
 **API版本**: v1.0  
 **最后更新**: 2024年  
-**相关文档**: [架构设计](../architecture.md) | [开发者指南](../developer-guide.md)
+**相关文档**: [架构设计](../../architecture/architecture.md) | [开发者指南](../../development/developer-guide.md)

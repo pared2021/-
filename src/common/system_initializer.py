@@ -1,5 +1,19 @@
 from typing import Dict, Any, List, Set, Optional
-from src.common.containers import EnhancedContainer
+from .containers import EnhancedContainer
+
+# 服务依赖定义（向后兼容）
+SERVICE_DEPENDENCIES = {
+    'config': [],
+    'logger': ['config'],
+    'error_handler': ['config', 'logger'],
+    'window_manager': ['config', 'logger'],
+    'image_processor': ['config', 'logger'],
+    'action_simulator': ['config', 'logger'],
+    'game_analyzer': ['config', 'logger', 'image_processor'],
+    'game_state': ['config', 'logger'],
+    'auto_operator': ['config', 'logger', 'action_simulator', 'game_analyzer'],
+    'config_manager': ['config']
+}
 
 def initialize_container() -> Optional[EnhancedContainer]:
     """
@@ -90,4 +104,4 @@ def get_initialization_order() -> List[str]:
     """废弃函数 - 仅用于向后兼容"""
     print(f"Warning: get_initialization_order 已废弃，请使用 EnhancedContainer 的分阶段初始化")
     return ['config', 'logger', 'error_handler', 'window_manager', 'image_processor', 
-            'action_simulator', 'game_analyzer', 'game_state', 'auto_operator', 'config_manager'] 
+            'action_simulator', 'game_analyzer', 'game_state', 'auto_operator', 'config_manager']

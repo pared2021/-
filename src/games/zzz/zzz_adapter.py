@@ -11,11 +11,13 @@ from dataclasses import dataclass
 import win32gui
 import win32con
 import win32api
-from src.core.game_adapter import GameAdapter, GameWindow, GameState
-from src.core.unified_game_analyzer import UnifiedGameAnalyzer as GameAnalyzer
+import win32process
+import win32ui
+from ...core.game_adapter import GameAdapter, GameWindow, GameState
+from ...core.unified_game_analyzer import UnifiedGameAnalyzer as GameAnalyzer
 
-# 使用统一的Action体系
-from src.common.action_system import (
+
+from ...common.action_system import (
     ActionType, GameSpecificAction, ActionSequence, ActionFactory, BaseAction
 )
 

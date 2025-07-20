@@ -9,9 +9,9 @@ import time
 import psutil
 import keyboard
 import logging
-from src.collector.screen_collector import ScreenCollector
-from src.engine.decision_engine import DecisionEngine
-from src.executor.action_executor import ActionExecutor
+from ..collector.screen_collector import ScreenCollector
+from ..engine.decision_engine import DecisionEngine
+from ..executor.action_executor import ActionExecutor
 
 
 class SimpleAutomationSystem:

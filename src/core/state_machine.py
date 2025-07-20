@@ -10,7 +10,7 @@ import re
 from enum import Enum
 
 # 使用统一的Action体系
-from src.common.action_system import (
+from ..common.action_system import (
     ActionType, AutomationAction, ActionSequence, ActionFactory, BaseAction
 )
 

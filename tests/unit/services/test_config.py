@@ -3,7 +3,7 @@ import unittest
 import os
 import shutil
 from tempfile import mkdtemp
-from src.services.config import Config
+from ....src.services.config import Config
 
 class TestConfig(unittest.TestCase):
     """测试配置类"""
@@ -56,4 +56,4 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config.image_processor.template_match_threshold, 0.9)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

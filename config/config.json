@@ -1,0 +1,75 @@
+{
+    "application": {
+        "name": "GameAutomationTool",
+        "version": "3.0.0",
+        "window_title": "游戏自动操作工具",
+        "window_size": [
+            800,
+            600
+        ],
+        "language": "zh_CN",
+        "theme": "default"
+    },
+    "hotkeys": {
+        "start_record": "F9",
+        "stop_record": "F10",
+        "start_playback": "F11",
+        "stop_playback": "F12"
+    },
+    "playback_options": {
+        "speed": 1.0,
+        "loop_count": 1,
+        "random_delay": 0.0
+    },
+    "window": {
+        "last_selected": "",
+        "refresh_interval": 1000
+    },
+    "template": {
+        "duration": 300,
+        "interval": 0.5,
+        "last_dir": "templates",
+        "save_dir": "templates"
+    },
+    "game_state": {
+        "analysis_interval": 1000,
+        "confidence_threshold": 0.8,
+        "detection_methods": [
+            "template_matching",
+            "feature_detection"
+        ],
+        "auto_save": true
+    },
+    "automation": {
+        "default_delay": 0.1,
+        "random_factor": 0.1,
+        "retry_count": 3,
+        "timeout": 30
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/application.log",
+        "max_size": "10MB",
+        "backup_count": 5
+    },
+    "performance": {
+        "max_memory_usage": "512MB",
+        "cpu_limit": 80,
+        "gpu_acceleration": true
+    },
+    "test": {},
+    "clean_architecture": {
+        "enabled": true,
+        "dependency_injection": {
+            "auto_wire": true,
+            "strict_mode": false,
+            "container_type": "DeclarativeContainer"
+        },
+        "layers": {
+            "core": "src/core",
+            "application": "src/application", 
+            "infrastructure": "src/infrastructure",
+            "presentation": "src/presentation"
+        }
+    }
+}

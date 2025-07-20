@@ -12,7 +12,7 @@ import logging
 from .macro_recorder import MacroEvent, MacroEventType
 
 # 引入统一的Action体系（用于创建宏动作）
-from src.common.action_system import (
+from ..common.action_system import (
     ActionType, MacroAction, ActionSequence, ActionFactory, BaseAction
 )
 

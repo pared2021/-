@@ -1,0 +1,40 @@
+{
+    "module_manager": {
+        "auto_discovery": true,
+        "lazy_loading": true,
+        "cache_enabled": true,
+        "scan_paths": ["src"],
+        "exclude_patterns": ["__pycache__", "*.pyc", "tests"],
+        "aliases": {
+            "@config": "src.services.config",
+            "@logger": "src.services.logger",
+            "@game": "src.games",
+            "@core": "src.core",
+            "@gui": "src.gui",
+            "@services": "src.services",
+            "@common": "src.common",
+            "@infrastructure": "src.infrastructure",
+            "@application": "src.application",
+            "@presentation": "src.presentation",
+            "@zzz": "src.zzz",
+            "@ai": "src.ai",
+            "@utils": "src.utils",
+            "@tools": "src.tools"
+        },
+        "preload_modules": [
+            "src.services.config",
+            "src.services.logger",
+            "src.common.exceptions"
+        ],
+        "performance": {
+            "max_cache_size": 1000,
+            "cache_ttl_seconds": 3600,
+            "enable_profiling": false
+        },
+        "logging": {
+            "level": "INFO",
+            "log_imports": false,
+            "log_discoveries": true
+        }
+    }
+}

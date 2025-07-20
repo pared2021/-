@@ -6,8 +6,8 @@ from typing import Dict, List, Optional
 import time
 import psutil
 from dataclasses import dataclass
-from src.services.error_handler import ErrorHandler
-from src.common.error_types import ErrorCode, ErrorContext
+from ..error_handler import ErrorHandler
+from ...common.error_types import ErrorCode, ErrorContext
 
 @dataclass
 class PerformanceMetrics:
@@ -183,4 +183,4 @@ class PerformanceMonitor:
         """
         self.max_history_size = size
         while len(self.metrics_history) > self.max_history_size:
-            self.metrics_history.pop(0) 
+            self.metrics_history.pop(0)

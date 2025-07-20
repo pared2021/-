@@ -11,16 +11,62 @@ import logging
 import argparse
 from typing import Optional
 
+# 配置系统导入
+from .common.app_config import init_application_metadata, setup_application_properties
+from .services.config import config, get_config
+
+def safe_print(message, fallback_prefix=""):
+    """安全的print函数，处理Unicode编码问题"""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # 移除emoji字符，使用简化版本
+        import re
+        # 移除emoji和特殊Unicode字符
+        safe_message = re.sub(r'[^\x00-\x7F]+', fallback_prefix, message)
+        print(safe_message)
+
 def setup_logging():
-    """设置日志配置"""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('logs/main.log', encoding='utf-8'),
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+    """设置日志配置 - 使用统一配置系统"""
+    try:
+        # 获取日志配置
+        log_config = config.get_logging_config()
+        log_level = getattr(logging, log_config.get('level', 'INFO').upper())
+        log_format = log_config.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        log_file = log_config.get('file', 'logs/main.log')
+        
+        # 确保日志目录存在
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        
+        # 设置日志处理器
+        handlers = []
+        
+        # 文件处理器
+        if log_config.get('enable_file', True):
+            handlers.append(logging.FileHandler(log_file, encoding='utf-8'))
+        
+        # 控制台处理器
+        if log_config.get('enable_console', True):
+            handlers.append(logging.StreamHandler(sys.stdout))
+        
+        logging.basicConfig(
+            level=log_level,
+            format=log_format,
+            handlers=handlers,
+            force=True  # 重新配置已存在的logger
+        )
+        
+    except Exception as e:
+        # 降级到默认日志配置
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('logs/main.log', encoding='utf-8'),
+                logging.StreamHandler(sys.stdout)
+            ]
+        )
+        logging.getLogger(__name__).warning(f"使用默认日志配置，配置加载失败: {e}")
 
 def check_dependencies():
     """检查依赖是否满足"""
@@ -34,18 +80,7 @@ def check_dependencies():
         available_deps['PyQt6'] = PyQt6.__version__ if hasattr(PyQt6, '__version__') else 'unknown'
     except ImportError:
         pyqt6_available = False
-    
-    # 检查PySide6  
-    try:
-        import PySide6
-        pyside6_available = True
-        available_deps['PySide6'] = PySide6.__version__ if hasattr(PySide6, '__version__') else 'unknown'
-    except ImportError:
-        pyside6_available = False
-    
-    # 至少需要一个GUI框架
-    if not pyqt6_available and not pyside6_available:
-        missing_deps.append("PyQt6 或 PySide6")
+        missing_deps.append("PyQt6")
     
     # 检查桌面自动化核心依赖
     core_deps = {
@@ -84,7 +119,6 @@ def check_dependencies():
     
     return {
         'pyqt6': pyqt6_available,
-        'pyside6': pyside6_available,
         'missing': missing_deps,
         'ai_missing': ai_missing,
         'available': available_deps
@@ -107,9 +141,6 @@ def install_missing_dependencies(missing_deps: list) -> bool:
     print("🔧 检测到缺失依赖，尝试自动安装...")
     
     for dep in missing_deps:
-        if dep == "PyQt6 或 PySide6":
-            # 优先尝试安装PyQt6
-            dep = "PyQt6"
         
         print(f"📦 安装 {dep}...")
         try:
@@ -161,19 +192,13 @@ def validate_dependency_compatibility() -> bool:
         except ImportError:
             pass
         
-        # 检查PyQt6/PySide6版本
+        # 检查PyQt6版本
         try:
             import PyQt6
-            # PyQt6版本检查
             pyqt6_version = getattr(PyQt6, '__version__', '0.0.0')
             print(f"📱 PyQt6版本: {pyqt6_version}")
         except ImportError:
-            try:
-                import PySide6
-                pyside6_version = getattr(PySide6, '__version__', '0.0.0')
-                print(f"📱 PySide6版本: {pyside6_version}")
-            except ImportError:
-                pass
+            print("❌ PyQt6未安装")
         
         return True
         
@@ -194,42 +219,91 @@ def detect_display():
     except:
         return False
 
-def start_gui_app(ui_framework: str = 'auto'):
-    """启动GUI应用
-    
-    Args:
-        ui_framework: UI框架选择 ('pyqt6', 'pyside6', 'auto')
-    """
+def start_gui_app():
+    """启动传统GUI应用 - 统一使用PyQt6，集成配置系统和Clean Architecture"""
     deps = check_dependencies()
     
-    # 自动选择UI框架
-    if ui_framework == 'auto':
-        if deps['pyqt6']:
-            ui_framework = 'pyqt6'
-        elif deps['pyside6']:
-            ui_framework = 'pyside6'
+    if not deps['pyqt6']:
+        raise RuntimeError("缺少PyQt6依赖，请运行: pip install PyQt6")
+    
+    print("📱 启动传统GUI应用 (PyQt6)")
+    
+    # 导入PyQt6
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtCore import QCoreApplication
+    from .gui.main_window import MainWindow
+    
+    # 导入Clean Architecture组件
+    from .application.containers.main_container import MainContainer
+
+def start_modern_gui_app():
+    """启动现代化GUI应用 - 基于游戏界面设计"""
+    deps = check_dependencies()
+    
+    if not deps['pyqt6']:
+        raise RuntimeError("缺少PyQt6依赖，请运行: pip install PyQt6")
+    
+    print("🎮 启动现代化GUI应用 (PyQt6 + 游戏风格UI)")
+    
+    # 导入PyQt6
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtCore import QCoreApplication
+    from .gui.modern_ui.modern_main_window import ModernMainWindow
+    
+    # 导入Clean Architecture组件
+    from .application.containers.main_container import MainContainer
+    
+    # 创建QApplication实例
+    app = QApplication(sys.argv)
+    
+    try:
+        # 初始化应用元数据（必须在QApplication创建后）
+        init_application_metadata()
+        
+        # 获取应用配置
+        app_config = config.get_application_config()
+        
+        # 设置应用属性
+        setup_application_properties(
+            window_title=app_config.get('window_title', '游戏自动操作工具 - 现代化界面'),
+            window_size=tuple(app_config.get('window_size', [1600, 1000])),
+            theme=app_config.get('theme', 'modern')
+        )
+        
+        # 设置应用信息（用于关于对话框等，兼容性检查）
+        try:
+            QCoreApplication.setApplicationDisplayName(app_config.get('window_title', '游戏自动操作工具 - 现代化界面'))
+        except AttributeError:
+            # 某些PyQt6版本可能不支持此方法
+            pass
+        
+        print(f"🏷️ 应用名称: {QCoreApplication.applicationName()}")
+        print(f"🏢 组织名称: {QCoreApplication.organizationName()}")
+        print(f"📌 版本: {QCoreApplication.applicationVersion()}")
+        
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"应用配置初始化失败，使用默认设置: {e}")
+    
+    # 注册模块别名（在容器初始化前）
+    try:
+        from .common.module_manager import get_module_manager
+        manager = get_module_manager()
+        if manager.is_initialized():
+            print("📋 模块别名已通过配置文件注册")
         else:
-            raise RuntimeError("没有可用的UI框架，请安装PyQt6或PySide6")
+            print("⚠️  模块管理器未初始化，跳过别名注册")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"模块别名注册失败: {e}")
     
-    print(f"📱 启动GUI应用 (使用 {ui_framework.upper()})")
+    # 初始化依赖注入容器
+    print("🔧 初始化依赖注入容器...")
+    container = MainContainer()
     
-    if ui_framework == 'pyqt6':
-        # 使用PyQt6主窗口
-        from src.gui.main_window import MainWindow
-        from PyQt6.QtWidgets import QApplication
-        
-        app = QApplication(sys.argv)
-        window = MainWindow()
-        window.show()
-        return app.exec()
-        
-    elif ui_framework == 'pyside6':
-        # 使用PySide6主窗口
-        from src.services.main import MainWindow, main as services_main
-        return services_main()
-        
-    else:
-        raise ValueError(f"不支持的UI框架: {ui_framework}")
+    # 创建并显示现代化主窗口，注入依赖
+    window = ModernMainWindow(container)
+    window.show()
+    
+    return app.exec()
 
 def start_cli_app():
     """启动命令行应用"""
@@ -237,7 +311,7 @@ def start_cli_app():
     
     # 导入CLI模块
     try:
-        from src.cli.main import CLIApp
+        from .cli.main import CLIApp
         app = CLIApp()
         return app.run()
     except ImportError:
@@ -254,7 +328,6 @@ def start_basic_cli():
     deps = check_dependencies()
     print("📦 依赖检查:")
     print(f"  PyQt6: {'✅' if deps['pyqt6'] else '❌'}")
-    print(f"  PySide6: {'✅' if deps['pyside6'] else '❌'}")
     
     if deps['missing']:
         print(f"  缺少依赖: {', '.join(deps['missing'])}")
@@ -272,16 +345,24 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python -m src.main                    # 自动检测模式
-  python -m src.main --gui              # 强制GUI模式
-  python -m src.main --cli              # 强制CLI模式
-  python -m src.main --gui --ui pyqt6   # 指定PyQt6
+  python main.py                       # 自动检测模式（默认现代化界面）
+  python main.py --gui                 # 启动传统图形界面
+  python main.py --modern-gui          # 启动现代化图形界面
+  python main.py --cli                 # 启动命令行界面
+  python main.py --debug               # 调试模式
+  python main.py --config-info         # 显示配置信息
+  python main.py --config-export config.json  # 导出配置
         """
     )
     
     parser.add_argument(
         '--gui', action='store_true',
-        help='启动图形界面'
+        help='启动图形界面（传统UI）'
+    )
+    
+    parser.add_argument(
+        '--modern-gui', action='store_true',
+        help='启动现代化图形界面'
     )
     
     parser.add_argument(
@@ -290,18 +371,18 @@ def parse_arguments():
     )
     
     parser.add_argument(
-        '--ui', choices=['pyqt6', 'pyside6', 'auto'], default='auto',
-        help='选择UI框架 (默认: auto)'
-    )
-    
-    parser.add_argument(
         '--debug', action='store_true',
         help='启用调试模式'
     )
     
     parser.add_argument(
-        '--config', type=str, default='config',
-        help='配置文件目录 (默认: config)'
+        '--config-info', action='store_true',
+        help='显示配置系统信息'
+    )
+    
+    parser.add_argument(
+        '--config-export', type=str, metavar='FILE',
+        help='导出配置到指定文件'
     )
     
     return parser.parse_args()
@@ -316,8 +397,20 @@ def main():
         setup_logging()
         logger = logging.getLogger(__name__)
         
+        # 获取应用信息
+        try:
+            app_config = config.get_application_config()
+            app_name = app_config.get('window_title', '游戏自动化工具')
+            app_version = app_config.get('version', '1.0.0')
+        except:
+            app_name = "游戏自动化工具"
+            app_version = "1.0.0"
+        
         print("=" * 60)
-        print("🎮 游戏自动化工具启动中...")
+        try:
+            print(f"🎮 {app_name} v{app_version} 启动中...")
+        except UnicodeEncodeError:
+            print(f"[GAME] {app_name} v{app_version} 启动中...")
         print("=" * 60)
         
         # 解析命令行参数
@@ -328,9 +421,37 @@ def main():
             logging.getLogger().setLevel(logging.DEBUG)
             logger.debug("调试模式已启用")
         
+        # 处理配置相关命令
+        if args.config_info:
+            print("📊 配置系统信息:")
+            storage_info = config.get_storage_info()
+            for key, value in storage_info.items():
+                print(f"  {key}: {value}")
+            return 0
+        
+        if args.config_export:
+            print(f"📤 导出配置到: {args.config_export}")
+            if config.export_to_json(args.config_export):
+                print("✅ 配置导出成功")
+                return 0
+            else:
+                print("❌ 配置导出失败")
+                return 1
+        
         # 检查依赖
         deps = check_dependencies()
-        logger.info(f"依赖检查完成: PyQt6={deps['pyqt6']}, PySide6={deps['pyside6']}")
+        logger.info(f"依赖检查完成: PyQt6={deps['pyqt6']}")
+        
+        # 初始化智能模块管理器
+        try:
+            from .common.module_manager import initialize_module_manager
+            print("🔧 初始化智能模块管理器...")
+            module_manager = initialize_module_manager()
+            logger.info("智能模块管理器初始化成功")
+            print("✅ 智能模块管理器已启动")
+        except Exception as e:
+            logger.warning(f"智能模块管理器初始化失败，使用传统导入方式: {e}")
+            print(f"⚠️  模块管理器初始化失败: {e}")
         
         # 显示可用依赖信息
         if deps['available']:
@@ -372,17 +493,21 @@ def main():
         if args.cli:
             # 强制CLI模式
             return start_cli_app()
+        elif args.modern_gui:
+            # 强制现代化GUI模式
+            return start_modern_gui_app()
         elif args.gui:
-            # 强制GUI模式
-            return start_gui_app(args.ui)
+            # 强制传统GUI模式
+            return start_gui_app()
         else:
             # 自动检测模式
             has_display = detect_display()
             logger.info(f"显示器检测: {has_display}")
             
-            if has_display and (deps['pyqt6'] or deps['pyside6']):
-                print("🖥️ 检测到显示器，启动图形界面")
-                return start_gui_app(args.ui)
+            if has_display and deps['pyqt6']:
+                print("🖥️ 检测到显示器，启动现代化图形界面")
+                print("💡 使用 --gui 启动传统界面，--modern-gui 启动现代化界面")
+                return start_modern_gui_app()
             else:
                 print("📟 未检测到显示器或GUI框架，启动命令行模式")
                 return start_cli_app()
@@ -392,8 +517,8 @@ def main():
         return 0
     except Exception as e:
         logger.error(f"程序启动失败: {e}", exc_info=True)
-        print(f"❌ 程序启动失败: {e}")
+        safe_print(f"❌ 程序启动失败: {e}", "[ERROR] ")
         return 1
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())

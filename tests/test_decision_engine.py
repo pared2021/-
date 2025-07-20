@@ -2,7 +2,7 @@
 import pytest
 import json
 from unittest.mock import mock_open, patch
-from src.engine.decision_engine import DecisionEngine, Action
+from ..src.engine.decision_engine import DecisionEngine, Action
 
 
 @pytest.fixture

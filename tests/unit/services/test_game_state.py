@@ -2,9 +2,9 @@
 import unittest
 import time
 from unittest.mock import MagicMock
-from src.services.game_state import GameState, StateManager
-from src.services.logger import GameLogger
-from src.services.game_analyzer import GameAnalyzer
+from ....src.services.game_state import GameState, StateManager
+from ....src.services.logger import GameLogger
+from ....src.services.game_analyzer import GameAnalyzer
 
 class TestGameState(unittest.TestCase):
     """测试游戏状态类"""
@@ -219,4 +219,4 @@ class TestStateManager(unittest.TestCase):
         self.assertEqual(next_state, self.mock_state1)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()
